@@ -578,6 +578,9 @@ class FitnessGame {
         if (this.userData.profile_visibility) {
             document.getElementById('profileVisibility').value = this.userData.profile_visibility;
         }
+
+        // Load all settings
+        this.loadProfileSettings();
     }
 
     async viewUserProfile(userId) {
