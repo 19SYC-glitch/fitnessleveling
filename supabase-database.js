@@ -13,11 +13,9 @@ class SupabaseDatabase {
             throw new Error('Supabase client not initialized');
         }
         
-        // Check for existing session
-        const { data: { session } } = await this.client.auth.getSession();
-        if (session) {
-            this.currentUser = session.user;
-        }
+        // Don't restore session automatically - require explicit login
+        // This ensures users must login each time they visit the site
+        this.currentUser = null;
         
         return this.client;
     }

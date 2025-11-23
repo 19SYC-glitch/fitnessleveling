@@ -15,42 +15,17 @@ class FitnessGame {
 
     async init() {
         try {
-            // Immediately hide all sections and show only login
+            // ALWAYS show login page first - require explicit login
             this.hideAllSections();
             this.showSection('login');
+            this.currentUser = null;
+            this.userData = null;
             
             await this.db.init();
-            const isAuthenticated = await this.checkAuth();
             this.setupEventListeners();
             
-            if (isAuthenticated && this.currentUser) {
-                // Remove initial hide style to allow sections to show
-                const initialStyle = document.getElementById('initialHideStyle');
-                if (initialStyle) {
-                    initialStyle.remove();
-                }
-                
-                // User is logged in, load their data and show dashboard
-                await this.loadUserData();
-                this.updateDashboard();
-                this.updateAchievements();
-                this.updateWorkouts();
-                this.updateLeaderboard();
-                this.updateProfile();
-                this.updateFriends();
-                this.checkStreak();
-                this.showSection('dashboard');
-                // Update navigation to show dashboard as active
-                document.querySelectorAll('.nav-link').forEach(l => l.classList.remove('active'));
-                const dashboardLink = document.querySelector('[data-section="dashboard"]');
-                if (dashboardLink) dashboardLink.classList.add('active');
-            } else {
-                // User not authenticated, keep them on login page
-                this.hideAllSections();
-                this.showSection('login');
-                this.currentUser = null;
-                this.userData = null;
-            }
+            // Don't auto-login - always require user to login manually
+            // This ensures users must explicitly login each time
         } catch (error) {
             console.error('Initialization error:', error);
             this.hideAllSections();
