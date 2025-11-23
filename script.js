@@ -46,9 +46,9 @@ class FitnessGame {
         return false;
     }
 
-    async login(email, password) {
+    async login(username, password) {
         try {
-            const { user } = await this.db.signIn(email, password);
+            const { user } = await this.db.signInWithUsername(username, password);
             this.currentUser = user;
             await this.loadUserData();
             this.updateNavbar();
@@ -62,7 +62,13 @@ class FitnessGame {
             return true;
         } catch (error) {
             console.error('Login error:', error);
-            this.showToast(error.message || 'Login failed. Please try again.', 'error');
+            if (error.message.includes('Username not found')) {
+                this.showToast('Username not found', 'error');
+            } else if (error.message.includes('Invalid login credentials')) {
+                this.showToast('Invalid username or password', 'error');
+            } else {
+                this.showToast(error.message || 'Login failed. Please try again.', 'error');
+            }
             return false;
         }
     }
@@ -583,9 +589,9 @@ class FitnessGame {
         // Login Form
         document.getElementById('loginForm').addEventListener('submit', async (e) => {
             e.preventDefault();
-            const email = document.getElementById('loginEmail').value.trim();
+            const username = document.getElementById('loginUsername').value.trim();
             const password = document.getElementById('loginPassword').value;
-            await this.login(email, password);
+            await this.login(username, password);
         });
 
         // Signup Form

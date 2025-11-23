@@ -84,6 +84,29 @@ class SupabaseDatabase {
         return data;
     }
 
+    async getUserByUsername(username) {
+        const { data, error } = await this.client
+            .from('users')
+            .select('email, username')
+            .eq('username', username)
+            .single();
+
+        if (error) throw error;
+        return data;
+    }
+
+    async signInWithUsername(username, password) {
+        // First, get the user's email by username
+        const userData = await this.getUserByUsername(username);
+        
+        if (!userData || !userData.email) {
+            throw new Error('Username not found');
+        }
+
+        // Then sign in with email
+        return await this.signIn(userData.email, password);
+    }
+
     async signOut() {
         const { error } = await this.client.auth.signOut();
         if (error) throw error;
