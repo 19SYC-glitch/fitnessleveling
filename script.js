@@ -581,6 +581,9 @@ class FitnessGame {
 
         // Load all settings
         this.loadProfileSettings();
+
+        // Load all settings
+        this.loadProfileSettings();
     }
 
     async viewUserProfile(userId) {
