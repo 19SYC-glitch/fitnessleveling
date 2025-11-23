@@ -15,7 +15,8 @@ class FitnessGame {
 
     async init() {
         try {
-            // Always show login page first
+            // Immediately hide all sections and show only login
+            this.hideAllSections();
             this.showSection('login');
             
             await this.db.init();
@@ -39,15 +40,24 @@ class FitnessGame {
                 if (dashboardLink) dashboardLink.classList.add('active');
             } else {
                 // User not authenticated, keep them on login page
+                this.hideAllSections();
                 this.showSection('login');
                 this.currentUser = null;
                 this.userData = null;
             }
         } catch (error) {
             console.error('Initialization error:', error);
+            this.hideAllSections();
             this.showSection('login');
             this.showToast('Error initializing app. Please refresh the page.', 'error');
         }
+    }
+
+    hideAllSections() {
+        document.querySelectorAll('.section').forEach(section => {
+            section.classList.remove('active');
+            section.style.display = 'none';
+        });
     }
 
     // Authentication
@@ -1237,17 +1247,20 @@ class FitnessGame {
         // Block access to protected sections if not authenticated
         const protectedSections = ['dashboard', 'workouts', 'achievements', 'leaderboard', 'friends', 'profile'];
         if (protectedSections.includes(sectionId) && !this.currentUser) {
+            this.hideAllSections();
             this.showSection('login');
             this.showToast('Please login to access this section', 'info');
             return;
         }
         
-        document.querySelectorAll('.section').forEach(section => {
-            section.classList.remove('active');
-        });
+        // Hide all sections first
+        this.hideAllSections();
+        
+        // Show requested section
         const section = document.getElementById(sectionId);
         if (section) {
             section.classList.add('active');
+            section.style.display = 'block';
         }
     }
 
@@ -1313,7 +1326,41 @@ class FitnessGame {
     }
 }
 
-// Initialize the app
-document.addEventListener('DOMContentLoaded', () => {
-    window.fitnessGame = new FitnessGame();
-});
+// Initialize the app - Run immediately to prevent flash of content
+(function() {
+    // Hide all sections immediately before JS loads
+    document.addEventListener('DOMContentLoaded', () => {
+        // Hide all sections first
+        document.querySelectorAll('.section').forEach(section => {
+            section.classList.remove('active');
+            section.style.display = 'none';
+        });
+        
+        // Only show login section
+        const loginSection = document.getElementById('login');
+        if (loginSection) {
+            loginSection.classList.add('active');
+            loginSection.style.display = 'block';
+        }
+        
+        // Initialize app
+        window.fitnessGame = new FitnessGame();
+    });
+    
+    // Also run immediately if DOM is already loaded
+    if (document.readyState === 'loading') {
+        // DOM is still loading, wait for DOMContentLoaded
+    } else {
+        // DOM is already loaded, run immediately
+        document.querySelectorAll('.section').forEach(section => {
+            section.classList.remove('active');
+            section.style.display = 'none';
+        });
+        const loginSection = document.getElementById('login');
+        if (loginSection) {
+            loginSection.classList.add('active');
+            loginSection.style.display = 'block';
+        }
+        window.fitnessGame = new FitnessGame();
+    }
+})();

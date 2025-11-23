@@ -97,6 +97,17 @@ body {
     display: block;
 }
 
+/* Hide all sections except login by default until authenticated */
+.section:not(#login):not(#signup) {
+    display: none !important;
+}
+
+/* Only show login/signup initially */
+#login.active,
+#signup.active {
+    display: block !important;
+}
+
 @keyframes fadeIn {
     from {
         opacity: 0;
