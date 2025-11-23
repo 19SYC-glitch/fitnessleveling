@@ -834,6 +834,13 @@ class FitnessGame {
             const achievementId = card.dataset.achievement;
             const isUnlocked = this.achievements.includes(achievementId);
             
+            // Update icon dynamically
+            const iconElement = card.querySelector('.achievement-icon i');
+            if (iconElement && achievementId) {
+                const iconClass = this.getAchievementIcon(achievementId);
+                iconElement.className = `fas ${iconClass}`;
+            }
+            
             if (isUnlocked) {
                 card.classList.add('unlocked');
                 const statusDiv = card.querySelector('.achievement-status');
