@@ -760,20 +760,156 @@ class FitnessGame {
     }
 
     async saveProfileSettings() {
-        if (!this.currentUser || !this.userData) return;
+        if (!this.currentUser) {
+            this.showToast('Please login to save settings', 'error');
+            return;
+        }
 
         try {
-            const visibility = document.getElementById('profileVisibility').value;
-            
-            await this.db.updateUserProfile(this.currentUser.id, {
-                profile_visibility: visibility
+            // Collect all settings
+            const settings = {
+                profile_visibility: document.getElementById('profileVisibility').value,
+                show_email_public: document.getElementById('showEmailPublic').checked,
+                show_stats_public: document.getElementById('showStatsPublic').checked,
+                email_notifications: document.getElementById('emailNotifications').checked,
+                workout_reminders: document.getElementById('workoutReminders').checked,
+                friend_requests_notifications: document.getElementById('friendRequestsNotifications').checked,
+                achievement_notifications: document.getElementById('achievementNotifications').checked,
+                units_system: document.getElementById('unitsSystem').value,
+                date_format: document.getElementById('dateFormat').value,
+                compact_view: document.getElementById('compactView').checked,
+                default_workout_type: document.getElementById('defaultWorkoutType').value,
+                streak_reminder_time: document.getElementById('streakReminderTime').value
+            };
+
+            // Save to database (store in profile JSONB field)
+            await this.db.updateUserProfile(this.currentUser.id, { 
+                profile_visibility: settings.profile_visibility,
+                profile: {
+                    ...(this.userData.profile || {}),
+                    settings: settings
+                }
             });
 
-            this.userData.profile_visibility = visibility;
-            this.showToast('Profile settings saved!', 'success');
+            // Update local userData
+            if (!this.userData.profile) this.userData.profile = {};
+            this.userData.profile.settings = settings;
+            this.userData.profile_visibility = settings.profile_visibility;
+
+            this.showToast('Settings saved successfully!', 'success');
         } catch (error) {
             console.error('Error saving profile settings:', error);
             this.showToast('Failed to save settings', 'error');
+        }
+    }
+
+    loadProfileSettings() {
+        if (!this.userData) return;
+
+        // Load settings from userData.profile.settings or use defaults
+        const settings = this.userData.profile?.settings || {};
+
+        // Privacy Settings
+        if (this.userData.profile_visibility) {
+            document.getElementById('profileVisibility').value = this.userData.profile_visibility;
+        }
+        document.getElementById('showEmailPublic').checked = settings.show_email_public || false;
+        document.getElementById('showStatsPublic').checked = settings.show_stats_public !== false; // default true
+
+        // Notification Settings
+        document.getElementById('emailNotifications').checked = settings.email_notifications !== false; // default true
+        document.getElementById('workoutReminders').checked = settings.workout_reminders !== false; // default true
+        document.getElementById('friendRequestsNotifications').checked = settings.friend_requests_notifications !== false; // default true
+        document.getElementById('achievementNotifications').checked = settings.achievement_notifications !== false; // default true
+
+        // Display Settings
+        document.getElementById('unitsSystem').value = settings.units_system || 'metric';
+        document.getElementById('dateFormat').value = settings.date_format || 'MM/DD/YYYY';
+        document.getElementById('compactView').checked = settings.compact_view || false;
+
+        // Activity Settings
+        document.getElementById('defaultWorkoutType').value = settings.default_workout_type || 'cardio';
+        document.getElementById('streakReminderTime').value = settings.streak_reminder_time || 'never';
+    }
+
+    async exportUserData() {
+        if (!this.currentUser || !this.userData) {
+            this.showToast('No data to export', 'error');
+            return;
+        }
+
+        try {
+            // Fetch all user data
+            const workouts = await this.db.getWorkoutsByUserId(this.currentUser.id);
+            const achievements = await this.db.getAchievementsByUserId(this.currentUser.id);
+            const friends = await this.db.getFriendsList(this.currentUser.id);
+
+            const exportData = {
+                user: {
+                    id: this.userData.id,
+                    name: this.userData.name,
+                    email: this.userData.email,
+                    username: this.userData.username,
+                    level: this.userData.level,
+                    xp: this.userData.xp,
+                    streak: this.userData.streak,
+                    profile: this.userData.profile || {}
+                },
+                workouts: workouts || [],
+                achievements: achievements || [],
+                friends: friends || [],
+                exported_at: new Date().toISOString()
+            };
+
+            // Create download
+            const dataStr = JSON.stringify(exportData, null, 2);
+            const dataBlob = new Blob([dataStr], { type: 'application/json' });
+            const url = URL.createObjectURL(dataBlob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = `fitnessleveling-data-${this.userData.username}-${Date.now()}.json`;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            URL.revokeObjectURL(url);
+
+            this.showToast('Data exported successfully!', 'success');
+        } catch (error) {
+            console.error('Error exporting data:', error);
+            this.showToast('Failed to export data', 'error');
+        }
+    }
+
+    async deleteAccount() {
+        if (!this.currentUser) {
+            this.showToast('Not logged in', 'error');
+            return;
+        }
+
+        // Double confirmation
+        const confirm1 = confirm('Are you sure you want to delete your account? This will permanently delete all your data.');
+        if (!confirm1) return;
+
+        const confirm2 = confirm('This action CANNOT be undone. Type DELETE in the next prompt to confirm.');
+        if (!confirm2) return;
+
+        const confirm3 = prompt('Type DELETE to confirm account deletion:');
+        if (confirm3 !== 'DELETE') {
+            this.showToast('Account deletion cancelled', 'info');
+            return;
+        }
+
+        try {
+            // Delete user account from Supabase
+            // Note: This requires proper RLS policies and may need admin function
+            this.showToast('Account deletion requested. Please contact support for account deletion.', 'info');
+            
+            // For now, just sign out
+            await this.logout();
+            this.showToast('Account deletion feature coming soon. Please contact support.', 'info');
+        } catch (error) {
+            console.error('Error deleting account:', error);
+            this.showToast('Failed to delete account. Please contact support.', 'error');
         }
     }
 
@@ -1078,6 +1214,18 @@ class FitnessGame {
         document.getElementById('profileSettingsForm')?.addEventListener('submit', async (e) => {
             e.preventDefault();
             await this.saveProfileSettings();
+        });
+
+        // Export Data Button
+        document.getElementById('exportDataBtn')?.addEventListener('click', async (e) => {
+            e.preventDefault();
+            await this.exportUserData();
+        });
+
+        // Delete Account Button
+        document.getElementById('deleteAccountBtn')?.addEventListener('click', async (e) => {
+            e.preventDefault();
+            await this.deleteAccount();
         });
     }
 
