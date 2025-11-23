@@ -598,6 +598,26 @@
         </div>
     </div>
 
+    <!-- Hide protected sections immediately with inline script -->
+    <script>
+        // Immediately hide all sections except login (runs before page renders)
+        (function() {
+            document.addEventListener('DOMContentLoaded', function() {
+                const sections = document.querySelectorAll('.section');
+                sections.forEach(section => {
+                    if (section.id !== 'login' && section.id !== 'signup') {
+                        section.style.display = 'none';
+                        section.classList.remove('active');
+                    }
+                });
+                const loginSection = document.getElementById('login');
+                if (loginSection) {
+                    loginSection.style.display = 'block';
+                    loginSection.classList.add('active');
+                }
+            });
+        })();
+    </script>
     <!-- Supabase JS Library -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <!-- Supabase Configuration -->
