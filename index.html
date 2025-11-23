@@ -1,0 +1,446 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="FitnessLeveling - Gamified fitness tracker with XP, levels, achievements, and streaks. Level up your fitness journey!">
+    <meta name="keywords" content="fitness, workout tracker, gamification, fitness app, level up, achievements">
+    <meta name="author" content="FitnessLeveling">
+    <link rel="canonical" href="https://fitnessleveling.com">
+    <title>FitnessLeveling - Gamified Fitness Tracker</title>
+    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+    <nav class="navbar">
+        <div class="nav-container">
+            <div class="logo">
+                <i class="fas fa-dumbbell"></i>
+                <span>FitnessLeveling</span>
+            </div>
+            <ul class="nav-menu">
+                <li><a href="#" class="nav-link active" data-section="dashboard">Dashboard</a></li>
+                <li><a href="#" class="nav-link" data-section="workouts">Workouts</a></li>
+                <li><a href="#" class="nav-link" data-section="achievements">Achievements</a></li>
+                <li><a href="#" class="nav-link" data-section="leaderboard">Leaderboard</a></li>
+                <li><a href="#" class="nav-link" data-section="profile">Profile</a></li>
+                <li id="authNavItem">
+                    <a href="#" class="nav-link" id="loginLink" data-section="login">Login</a>
+                </li>
+            </ul>
+        </div>
+    </nav>
+
+    <main class="container">
+        <!-- Dashboard Section -->
+        <section id="dashboard" class="section active">
+            <div class="dashboard-header">
+                <h1>Welcome, <span id="userName">Champion</span>!</h1>
+                <div class="level-badge">
+                    <i class="fas fa-trophy"></i>
+                    <span>Level <span id="userLevel">1</span></span>
+                </div>
+            </div>
+
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-icon"><i class="fas fa-fire"></i></div>
+                    <div class="stat-info">
+                        <h3 id="totalXP">0</h3>
+                        <p>Total XP</p>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon"><i class="fas fa-calendar-check"></i></div>
+                    <div class="stat-info">
+                        <h3 id="currentStreak">0</h3>
+                        <p>Day Streak</p>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon"><i class="fas fa-dumbbell"></i></div>
+                    <div class="stat-info">
+                        <h3 id="totalWorkouts">0</h3>
+                        <p>Workouts</p>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon"><i class="fas fa-medal"></i></div>
+                    <div class="stat-info">
+                        <h3 id="totalBadges">0</h3>
+                        <p>Badges</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="progress-section">
+                <h2>Level Progress</h2>
+                <div class="progress-bar-container">
+                    <div class="progress-bar">
+                        <div class="progress-fill" id="levelProgress"></div>
+                    </div>
+                    <div class="progress-text">
+                        <span id="currentXP">0</span> / <span id="nextLevelXP">100</span> XP
+                    </div>
+                </div>
+            </div>
+
+            <div class="recent-achievements">
+                <h2>Recent Achievements</h2>
+                <div id="recentBadges" class="badges-container">
+                    <p class="empty-state">Complete workouts to earn achievements!</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- Workouts Section -->
+        <section id="workouts" class="section">
+            <div class="section-header">
+                <h1>Log Workout</h1>
+                <button class="btn btn-primary" id="addWorkoutBtn">
+                    <i class="fas fa-plus"></i> New Workout
+                </button>
+            </div>
+
+            <div id="workoutForm" class="workout-form hidden">
+                <h2>Add New Workout</h2>
+                <div class="form-group">
+                    <label for="workoutName">Workout Name</label>
+                    <input type="text" id="workoutName" placeholder="e.g., Morning Run, Gym Session">
+                </div>
+                <div class="form-group">
+                    <label for="workoutType">Workout Type</label>
+                    <select id="workoutType">
+                        <option value="cardio">Cardio</option>
+                        <option value="strength">Strength Training</option>
+                        <option value="flexibility">Flexibility</option>
+                        <option value="sports">Sports</option>
+                        <option value="other">Other</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="workoutDuration">Duration (minutes)</label>
+                    <input type="number" id="workoutDuration" min="1" placeholder="30">
+                </div>
+                <div class="form-group">
+                    <label for="workoutIntensity">Intensity</label>
+                    <select id="workoutIntensity">
+                        <option value="low">Low</option>
+                        <option value="medium">Medium</option>
+                        <option value="high">High</option>
+                    </select>
+                </div>
+                <div class="form-actions">
+                    <button class="btn btn-secondary" id="cancelWorkoutBtn">Cancel</button>
+                    <button class="btn btn-primary" id="saveWorkoutBtn">Save Workout</button>
+                </div>
+            </div>
+
+            <div class="workouts-list">
+                <h2>Workout History</h2>
+                <div id="workoutsContainer" class="workouts-grid">
+                    <p class="empty-state">No workouts logged yet. Start your fitness journey!</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- Achievements Section -->
+        <section id="achievements" class="section">
+            <h1>Achievements & Badges</h1>
+            <div class="achievements-grid">
+                <div class="achievement-card" data-achievement="first-workout">
+                    <div class="achievement-icon">
+                        <i class="fas fa-star"></i>
+                    </div>
+                    <h3>First Steps</h3>
+                    <p>Complete your first workout</p>
+                    <div class="achievement-xp">+50 XP</div>
+                    <div class="achievement-status locked">
+                        <i class="fas fa-lock"></i> Locked
+                    </div>
+                </div>
+                <div class="achievement-card" data-achievement="streak-3">
+                    <div class="achievement-icon">
+                        <i class="fas fa-fire"></i>
+                    </div>
+                    <h3>On Fire</h3>
+                    <p>3 day workout streak</p>
+                    <div class="achievement-xp">+100 XP</div>
+                    <div class="achievement-status locked">
+                        <i class="fas fa-lock"></i> Locked
+                    </div>
+                </div>
+                <div class="achievement-card" data-achievement="streak-7">
+                    <div class="achievement-icon">
+                        <i class="fas fa-fire"></i>
+                    </div>
+                    <h3>Week Warrior</h3>
+                    <p>7 day workout streak</p>
+                    <div class="achievement-xp">+250 XP</div>
+                    <div class="achievement-status locked">
+                        <i class="fas fa-lock"></i> Locked
+                    </div>
+                </div>
+                <div class="achievement-card" data-achievement="streak-30">
+                    <div class="achievement-icon">
+                        <i class="fas fa-fire"></i>
+                    </div>
+                    <h3>Month Master</h3>
+                    <p>30 day workout streak</p>
+                    <div class="achievement-xp">+1000 XP</div>
+                    <div class="achievement-status locked">
+                        <i class="fas fa-lock"></i> Locked
+                    </div>
+                </div>
+                <div class="achievement-card" data-achievement="workouts-10">
+                    <div class="achievement-icon">
+                        <i class="fas fa-dumbbell"></i>
+                    </div>
+                    <h3>Dedicated</h3>
+                    <p>Complete 10 workouts</p>
+                    <div class="achievement-xp">+200 XP</div>
+                    <div class="achievement-status locked">
+                        <i class="fas fa-lock"></i> Locked
+                    </div>
+                </div>
+                <div class="achievement-card" data-achievement="workouts-50">
+                    <div class="achievement-icon">
+                        <i class="fas fa-dumbbell"></i>
+                    </div>
+                    <h3>Fitness Fanatic</h3>
+                    <p>Complete 50 workouts</p>
+                    <div class="achievement-xp">+500 XP</div>
+                    <div class="achievement-status locked">
+                        <i class="fas fa-lock"></i> Locked
+                    </div>
+                </div>
+                <div class="achievement-card" data-achievement="workouts-100">
+                    <div class="achievement-icon">
+                        <i class="fas fa-trophy"></i>
+                    </div>
+                    <h3>Century Club</h3>
+                    <p>Complete 100 workouts</p>
+                    <div class="achievement-xp">+1500 XP</div>
+                    <div class="achievement-status locked">
+                        <i class="fas fa-lock"></i> Locked
+                    </div>
+                </div>
+                <div class="achievement-card" data-achievement="level-5">
+                    <div class="achievement-icon">
+                        <i class="fas fa-crown"></i>
+                    </div>
+                    <h3>Rising Star</h3>
+                    <p>Reach Level 5</p>
+                    <div class="achievement-xp">+300 XP</div>
+                    <div class="achievement-status locked">
+                        <i class="fas fa-lock"></i> Locked
+                    </div>
+                </div>
+                <div class="achievement-card" data-achievement="level-10">
+                    <div class="achievement-icon">
+                        <i class="fas fa-crown"></i>
+                    </div>
+                    <h3>Elite Athlete</h3>
+                    <p>Reach Level 10</p>
+                    <div class="achievement-xp">+750 XP</div>
+                    <div class="achievement-status locked">
+                        <i class="fas fa-lock"></i> Locked
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Leaderboard Section -->
+        <section id="leaderboard" class="section">
+            <h1>Leaderboard</h1>
+            <div class="leaderboard-filters">
+                <button class="filter-btn active" data-filter="all">All Time</button>
+                <button class="filter-btn" data-filter="week">This Week</button>
+                <button class="filter-btn" data-filter="month">This Month</button>
+            </div>
+            <div class="leaderboard-container">
+                <div class="leaderboard-header">
+                    <div class="rank-col">Rank</div>
+                    <div class="name-col">Name</div>
+                    <div class="xp-col">XP</div>
+                    <div class="level-col">Level</div>
+                </div>
+                <div id="leaderboardList" class="leaderboard-list">
+                    <p class="empty-state">No leaderboard data yet. Start working out!</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- Profile Section -->
+        <section id="profile" class="section">
+            <div class="section-header">
+                <h1>My Profile</h1>
+            </div>
+            <div class="profile-container">
+                <div class="profile-card">
+                    <div class="profile-header">
+                        <div class="profile-avatar">
+                            <i class="fas fa-user"></i>
+                        </div>
+                        <div class="profile-info">
+                            <h2 id="profileName">Loading...</h2>
+                            <p id="profileEmail">Loading...</p>
+                            <div class="profile-stats-mini">
+                                <span>Level <strong id="profileLevel">1</strong></span>
+                                <span><strong id="profileXP">0</strong> XP</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="profile-form-card">
+                    <h2>Edit Profile</h2>
+                    <form id="profileForm">
+                        <div class="form-group">
+                            <label for="profileNameInput">Display Name</label>
+                            <input type="text" id="profileNameInput" placeholder="Your name">
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="profileAge">Age</label>
+                                <input type="number" id="profileAge" min="1" max="120" placeholder="Age">
+                            </div>
+                            <div class="form-group">
+                                <label for="profileHeight">Height (cm)</label>
+                                <input type="number" id="profileHeight" min="1" placeholder="Height">
+                            </div>
+                            <div class="form-group">
+                                <label for="profileWeight">Weight (kg)</label>
+                                <input type="number" id="profileWeight" min="1" placeholder="Weight">
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label for="profileGoal">Fitness Goal</label>
+                            <select id="profileGoal">
+                                <option value="">Select a goal</option>
+                                <option value="weight-loss">Weight Loss</option>
+                                <option value="muscle-gain">Muscle Gain</option>
+                                <option value="endurance">Endurance</option>
+                                <option value="flexibility">Flexibility</option>
+                                <option value="general-fitness">General Fitness</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="profileBio">Bio</label>
+                            <textarea id="profileBio" rows="4" placeholder="Tell us about yourself..."></textarea>
+                        </div>
+                        <div class="form-actions">
+                            <button type="submit" class="btn btn-primary">Save Changes</button>
+                        </div>
+                    </form>
+                </div>
+
+                <div class="profile-form-card">
+                    <h2>Change Password</h2>
+                    <form id="passwordForm">
+                        <div class="form-group">
+                            <label for="currentPassword">Current Password</label>
+                            <input type="password" id="currentPassword" placeholder="Current password">
+                        </div>
+                        <div class="form-group">
+                            <label for="newPassword">New Password</label>
+                            <input type="password" id="newPassword" placeholder="New password">
+                        </div>
+                        <div class="form-group">
+                            <label for="confirmPassword">Confirm New Password</label>
+                            <input type="password" id="confirmPassword" placeholder="Confirm password">
+                        </div>
+                        <div class="form-actions">
+                            <button type="submit" class="btn btn-primary">Update Password</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </section>
+
+        <!-- Login Section -->
+        <section id="login" class="section">
+            <div class="auth-container">
+                <div class="auth-card">
+                    <div class="auth-header">
+                        <i class="fas fa-dumbbell"></i>
+                        <h1>FitnessLeveling</h1>
+                        <p>Welcome back! Please login to continue.</p>
+                    </div>
+                    <form id="loginForm">
+                        <div class="form-group">
+                            <label for="loginEmail">Email</label>
+                            <input type="email" id="loginEmail" placeholder="your@email.com" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="loginPassword">Password</label>
+                            <input type="password" id="loginPassword" placeholder="Password" required>
+                        </div>
+                        <button type="submit" class="btn btn-primary btn-block">Login</button>
+                        <div class="auth-footer">
+                            <p>Don't have an account? <a href="#" id="showSignup">Sign up</a></p>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </section>
+
+        <!-- Signup Section -->
+        <section id="signup" class="section">
+            <div class="auth-container">
+                <div class="auth-card">
+                    <div class="auth-header">
+                        <i class="fas fa-dumbbell"></i>
+                        <h1>Join FitnessLeveling</h1>
+                        <p>Create your account to start your fitness journey!</p>
+                    </div>
+                    <form id="signupForm">
+                        <div class="form-group">
+                            <label for="signupUsername">Username</label>
+                            <input type="text" id="signupUsername" placeholder="Choose a username" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="signupName">Display Name</label>
+                            <input type="text" id="signupName" placeholder="Your name" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="signupEmail">Email</label>
+                            <input type="email" id="signupEmail" placeholder="your@email.com" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="signupPassword">Password</label>
+                            <input type="password" id="signupPassword" placeholder="Create a password" required minlength="6">
+                        </div>
+                        <div class="form-group">
+                            <label for="signupConfirmPassword">Confirm Password</label>
+                            <input type="password" id="signupConfirmPassword" placeholder="Confirm password" required>
+                        </div>
+                        <button type="submit" class="btn btn-primary btn-block">Sign Up</button>
+                        <div class="auth-footer">
+                            <p>Already have an account? <a href="#" id="showLogin">Login</a></p>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <!-- Notification Toast -->
+    <div id="toast" class="toast hidden">
+        <div class="toast-content">
+            <i class="toast-icon"></i>
+            <span class="toast-message"></span>
+        </div>
+    </div>
+
+    <!-- Supabase JS Library -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <!-- Supabase Configuration -->
+    <script src="supabase-config.js"></script>
+    <!-- Database (Supabase) -->
+    <script src="supabase-database.js"></script>
+    <!-- Main Application -->
+    <script src="script.js"></script>
+</body>
+</html>
+

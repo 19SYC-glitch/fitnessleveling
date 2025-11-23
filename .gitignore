@@ -1,0 +1,36 @@
+# OS files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Environment variables (if you add them later)
+.env
+.env.local
+.env.*.local
+
+# Vercel
+.vercel
+
+# Node modules (if you add any later)
+node_modules/
+
+# Old database files (keep IndexedDB version for reference, but don't need it)
+# database.js - commented out, keep the file
+

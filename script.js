@@ -1,0 +1,755 @@
+// Game State Management with Supabase Database
+class FitnessGame {
+    constructor() {
+        this.db = new SupabaseDatabase();
+        this.currentUser = null;
+        this.userData = null;
+        this.achievements = [];
+        this.workouts = [];
+        this.init();
+    }
+
+    async init() {
+        try {
+            await this.db.init();
+            await this.checkAuth();
+            this.setupEventListeners();
+            
+            if (this.currentUser) {
+                await this.loadUserData();
+                this.updateDashboard();
+                this.updateAchievements();
+                this.updateWorkouts();
+                this.updateLeaderboard();
+                this.updateProfile();
+                this.checkStreak();
+            } else {
+                this.showSection('login');
+            }
+        } catch (error) {
+            console.error('Initialization error:', error);
+            this.showToast('Error initializing app. Please refresh the page.', 'error');
+        }
+    }
+
+    // Authentication
+    async checkAuth() {
+        try {
+            const session = await this.db.getSession();
+            if (session && session.user) {
+                this.currentUser = session.user;
+                return true;
+            }
+        } catch (error) {
+            console.error('Session check error:', error);
+        }
+        return false;
+    }
+
+    async login(email, password) {
+        try {
+            const { user } = await this.db.signIn(email, password);
+            this.currentUser = user;
+            await this.loadUserData();
+            this.updateNavbar();
+            this.showToast('Welcome back!', 'success');
+            this.showSection('dashboard');
+            this.updateDashboard();
+            this.updateAchievements();
+            this.updateWorkouts();
+            this.updateLeaderboard();
+            this.updateProfile();
+            return true;
+        } catch (error) {
+            console.error('Login error:', error);
+            this.showToast(error.message || 'Login failed. Please try again.', 'error');
+            return false;
+        }
+    }
+
+    async signup(username, name, email, password) {
+        try {
+            const { user } = await this.db.signUp(email, password, { username, name });
+            this.currentUser = user;
+            await this.loadUserData();
+            this.updateNavbar();
+            this.showToast('Account created successfully! Welcome to FitnessLeveling!', 'success');
+            this.showSection('dashboard');
+            this.updateDashboard();
+            this.updateProfile();
+            return true;
+        } catch (error) {
+            console.error('Signup error:', error);
+            if (error.message.includes('already registered') || error.message.includes('already exists')) {
+                this.showToast('Email or username already exists', 'error');
+            } else {
+                this.showToast(error.message || 'Signup failed. Please try again.', 'error');
+            }
+            return false;
+        }
+    }
+
+    async logout() {
+        try {
+            await this.db.signOut();
+            this.currentUser = null;
+            this.userData = null;
+            this.updateNavbar();
+            this.showSection('login');
+            this.showToast('Logged out successfully', 'info');
+        } catch (error) {
+            console.error('Logout error:', error);
+            this.showToast('Error logging out', 'error');
+        }
+    }
+
+    // Data Management
+    async loadUserData() {
+        if (!this.currentUser) return;
+
+        try {
+            const profile = await this.db.getUserProfile(this.currentUser.id);
+            
+            this.userData = {
+                id: profile.id,
+                name: profile.name,
+                email: profile.email,
+                username: profile.username,
+                xp: profile.xp || 0,
+                level: profile.level || 1,
+                streak: profile.streak || 0,
+                lastWorkoutDate: profile.last_workout_date,
+                totalWorkouts: profile.total_workouts || 0,
+                badges: profile.badges || [],
+                profile: profile.profile || {}
+            };
+
+            this.workouts = await this.db.getWorkoutsByUserId(this.currentUser.id);
+            this.achievements = await this.db.getAchievementsByUserId(this.currentUser.id);
+        } catch (error) {
+            console.error('Error loading user data:', error);
+            this.showToast('Error loading user data', 'error');
+        }
+    }
+
+    async saveUserData() {
+        if (!this.currentUser || !this.userData) return;
+
+        try {
+            await this.db.updateUserProfile(this.currentUser.id, {
+                name: this.userData.name,
+                xp: this.userData.xp,
+                level: this.userData.level,
+                streak: this.userData.streak,
+                last_workout_date: this.userData.lastWorkoutDate,
+                total_workouts: this.userData.totalWorkouts,
+                badges: this.userData.badges,
+                profile: this.userData.profile
+            });
+        } catch (error) {
+            console.error('Error saving user data:', error);
+            this.showToast('Error saving data', 'error');
+        }
+    }
+
+    // XP and Level System
+    calculateXP(duration, intensity) {
+        const baseXP = duration;
+        const intensityMultiplier = {
+            low: 1,
+            medium: 1.5,
+            high: 2
+        };
+        return Math.floor(baseXP * intensityMultiplier[intensity]);
+    }
+
+    async addXP(amount) {
+        this.userData.xp += amount;
+        const oldLevel = this.userData.level;
+        this.userData.level = this.calculateLevel(this.userData.xp);
+        
+        if (this.userData.level > oldLevel) {
+            this.showToast(`Level Up! You reached Level ${this.userData.level}!`, 'success');
+        }
+        
+        await this.saveUserData();
+        this.updateDashboard();
+    }
+
+    calculateLevel(xp) {
+        return Math.floor(Math.sqrt(xp / 100)) + 1;
+    }
+
+    getXPForNextLevel(level) {
+        return Math.pow(level, 2) * 100;
+    }
+
+    getXPForCurrentLevel(level) {
+        return Math.pow(level - 1, 2) * 100;
+    }
+
+    // Streak System
+    checkStreak() {
+        if (!this.userData || !this.userData.lastWorkoutDate) {
+            return;
+        }
+
+        const today = new Date().toDateString();
+        const lastDate = this.userData.lastWorkoutDate;
+        const lastWorkout = new Date(lastDate).toDateString();
+        const yesterday = new Date();
+        yesterday.setDate(yesterday.getDate() - 1);
+
+        if (lastWorkout !== yesterday.toDateString() && lastWorkout !== today) {
+            this.userData.streak = 0;
+            this.saveUserData();
+        }
+    }
+
+    async updateStreak() {
+        const today = new Date().toDateString();
+        const lastDate = this.userData.lastWorkoutDate;
+
+        if (!lastDate) {
+            this.userData.streak = 1;
+        } else {
+            const lastWorkout = new Date(lastDate).toDateString();
+            const yesterday = new Date();
+            yesterday.setDate(yesterday.getDate() - 1);
+
+            if (lastWorkout === yesterday.toDateString()) {
+                this.userData.streak += 1;
+            } else if (lastWorkout !== today) {
+                this.userData.streak = 1;
+            }
+        }
+
+        this.userData.lastWorkoutDate = today;
+        await this.saveUserData();
+        
+        // Update last_workout_date in database
+        await this.db.updateUserProfile(this.currentUser.id, {
+            last_workout_date: today
+        });
+    }
+
+    // Achievement System
+    async checkAchievements() {
+        const achievements = [
+            {
+                id: 'first-workout',
+                check: () => this.userData.totalWorkouts >= 1,
+                xp: 50
+            },
+            {
+                id: 'streak-3',
+                check: () => this.userData.streak >= 3,
+                xp: 100
+            },
+            {
+                id: 'streak-7',
+                check: () => this.userData.streak >= 7,
+                xp: 250
+            },
+            {
+                id: 'streak-30',
+                check: () => this.userData.streak >= 30,
+                xp: 1000
+            },
+            {
+                id: 'workouts-10',
+                check: () => this.userData.totalWorkouts >= 10,
+                xp: 200
+            },
+            {
+                id: 'workouts-50',
+                check: () => this.userData.totalWorkouts >= 50,
+                xp: 500
+            },
+            {
+                id: 'workouts-100',
+                check: () => this.userData.totalWorkouts >= 100,
+                xp: 1500
+            },
+            {
+                id: 'level-5',
+                check: () => this.userData.level >= 5,
+                xp: 300
+            },
+            {
+                id: 'level-10',
+                check: () => this.userData.level >= 10,
+                xp: 750
+            }
+        ];
+
+        for (const achievement of achievements) {
+            if (achievement.check() && !this.achievements.includes(achievement.id)) {
+                await this.db.addAchievement(this.currentUser.id, achievement.id);
+                this.achievements.push(achievement.id);
+                await this.addXP(achievement.xp);
+                this.userData.badges.push(achievement.id);
+                this.showToast(`Achievement Unlocked: ${this.getAchievementName(achievement.id)}! +${achievement.xp} XP`, 'success');
+            }
+        }
+    }
+
+    getAchievementName(id) {
+        const names = {
+            'first-workout': 'First Steps',
+            'streak-3': 'On Fire',
+            'streak-7': 'Week Warrior',
+            'streak-30': 'Month Master',
+            'workouts-10': 'Dedicated',
+            'workouts-50': 'Fitness Fanatic',
+            'workouts-100': 'Century Club',
+            'level-5': 'Rising Star',
+            'level-10': 'Elite Athlete'
+        };
+        return names[id] || id;
+    }
+
+    // Workout Management
+    async addWorkout(name, type, duration, intensity) {
+        if (!this.currentUser || !this.currentUser.id) {
+            throw new Error('User not authenticated');
+        }
+
+        const xp = this.calculateXP(duration, intensity);
+        
+        try {
+            await this.db.addWorkout(this.currentUser.id, {
+                name,
+                type,
+                duration,
+                intensity,
+                xp
+            });
+
+            this.userData.totalWorkouts += 1;
+            await this.updateStreak();
+            await this.addXP(xp);
+            await this.checkAchievements();
+            
+            await this.loadUserData();
+            
+            this.showToast(`Workout logged! +${xp} XP earned!`, 'success');
+            this.updateWorkouts();
+            this.updateDashboard();
+            this.updateAchievements();
+            this.updateLeaderboard();
+        } catch (error) {
+            console.error('Error in addWorkout:', error);
+            throw error;
+        }
+    }
+
+    // UI Updates
+    updateDashboard() {
+        if (!this.userData) return;
+
+        document.getElementById('userName').textContent = this.userData.name;
+        document.getElementById('userLevel').textContent = this.userData.level;
+        document.getElementById('totalXP').textContent = this.userData.xp.toLocaleString();
+        document.getElementById('currentStreak').textContent = this.userData.streak;
+        document.getElementById('totalWorkouts').textContent = this.userData.totalWorkouts;
+        document.getElementById('totalBadges').textContent = this.userData.badges.length;
+
+        // Level Progress
+        const currentLevelXP = this.getXPForCurrentLevel(this.userData.level);
+        const nextLevelXP = this.getXPForNextLevel(this.userData.level);
+        const currentProgress = this.userData.xp - currentLevelXP;
+        const neededProgress = nextLevelXP - currentLevelXP;
+        const progressPercent = (currentProgress / neededProgress) * 100;
+
+        document.getElementById('levelProgress').style.width = `${Math.min(progressPercent, 100)}%`;
+        document.getElementById('currentXP').textContent = currentProgress;
+        document.getElementById('nextLevelXP').textContent = neededProgress;
+
+        // Recent Badges
+        const recentBadges = this.userData.badges.slice(-3).reverse();
+        const badgesContainer = document.getElementById('recentBadges');
+        
+        if (recentBadges.length === 0) {
+            badgesContainer.innerHTML = '<p class="empty-state">Complete workouts to earn achievements!</p>';
+        } else {
+            badgesContainer.innerHTML = recentBadges.map(badgeId => {
+                const name = this.getAchievementName(badgeId);
+                return `
+                    <div class="badge-item">
+                        <i class="fas fa-trophy"></i>
+                        <span>${name}</span>
+                    </div>
+                `;
+            }).join('');
+        }
+    }
+
+    updateWorkouts() {
+        const container = document.getElementById('workoutsContainer');
+        
+        if (this.workouts.length === 0) {
+            container.innerHTML = '<p class="empty-state">No workouts logged yet. Start your fitness journey!</p>';
+            return;
+        }
+
+        container.innerHTML = this.workouts.map(workout => {
+            const date = new Date(workout.created_at || workout.date);
+            const dateStr = date.toLocaleDateString('en-US', { 
+                month: 'short', 
+                day: 'numeric', 
+                year: 'numeric' 
+            });
+
+            return `
+                <div class="workout-card">
+                    <div class="workout-card-header">
+                        <div>
+                            <div class="workout-card-title">${workout.name}</div>
+                            <span class="workout-card-type">${workout.type}</span>
+                        </div>
+                        <div class="workout-card-xp">+${workout.xp} XP</div>
+                    </div>
+                    <div class="workout-card-details">
+                        <span><i class="fas fa-clock"></i> ${workout.duration} min</span>
+                        <span><i class="fas fa-bolt"></i> ${workout.intensity}</span>
+                        <span><i class="fas fa-calendar"></i> ${dateStr}</span>
+                    </div>
+                </div>
+            `;
+        }).join('');
+    }
+
+    updateAchievements() {
+        const achievementCards = document.querySelectorAll('.achievement-card');
+        
+        achievementCards.forEach(card => {
+            const achievementId = card.dataset.achievement;
+            const isUnlocked = this.achievements.includes(achievementId);
+            
+            if (isUnlocked) {
+                card.classList.add('unlocked');
+                const statusDiv = card.querySelector('.achievement-status');
+                statusDiv.classList.remove('locked');
+                statusDiv.classList.add('unlocked');
+                statusDiv.innerHTML = '<i class="fas fa-check"></i> Unlocked';
+            }
+        });
+    }
+
+    async updateLeaderboard() {
+        const container = document.getElementById('leaderboardList');
+        
+        try {
+            const allUsers = await this.db.getAllUsers();
+            const leaderboardData = allUsers
+                .map(user => ({
+                    id: user.id,
+                    name: user.name,
+                    xp: user.xp || 0,
+                    level: user.level || 1,
+                    isCurrentUser: this.currentUser && user.id === this.currentUser.id
+                }))
+                .sort((a, b) => b.xp - a.xp)
+                .slice(0, 100); // Top 100 (already sorted by Supabase query)
+
+            if (leaderboardData.length === 0) {
+                container.innerHTML = '<p class="empty-state">No leaderboard data yet. Start working out!</p>';
+                return;
+            }
+
+            container.innerHTML = leaderboardData.map((user, index) => {
+                const rank = index + 1;
+                const rankClass = rank === 1 ? 'top-1' : rank === 2 ? 'top-2' : rank === 3 ? 'top-3' : '';
+                const userClass = user.isCurrentUser ? 'current-user' : '';
+
+                return `
+                    <div class="leaderboard-item ${userClass}">
+                        <div class="rank-number ${rankClass}">#${rank}</div>
+                        <div class="user-name">
+                            ${user.isCurrentUser ? '<i class="fas fa-user"></i>' : ''}
+                            ${user.name}
+                        </div>
+                        <div class="user-xp">${user.xp.toLocaleString()} XP</div>
+                        <div class="user-level">Level ${user.level}</div>
+                    </div>
+                `;
+            }).join('');
+        } catch (error) {
+            console.error('Leaderboard error:', error);
+            container.innerHTML = '<p class="empty-state">Error loading leaderboard</p>';
+        }
+    }
+
+    updateProfile() {
+        if (!this.userData) return;
+
+        document.getElementById('profileName').textContent = this.userData.name;
+        document.getElementById('profileEmail').textContent = this.userData.email;
+        document.getElementById('profileLevel').textContent = this.userData.level;
+        document.getElementById('profileXP').textContent = this.userData.xp.toLocaleString();
+
+        // Populate form
+        document.getElementById('profileNameInput').value = this.userData.name;
+        if (this.userData.profile) {
+            document.getElementById('profileAge').value = this.userData.profile.age || '';
+            document.getElementById('profileHeight').value = this.userData.profile.height || '';
+            document.getElementById('profileWeight').value = this.userData.profile.weight || '';
+            document.getElementById('profileGoal').value = this.userData.profile.fitness_goal || this.userData.profile.fitnessGoal || '';
+            document.getElementById('profileBio').value = this.userData.profile.bio || '';
+        }
+    }
+
+    async saveProfile() {
+        if (!this.userData || !this.currentUser) {
+            this.showToast('Please login to update profile', 'error');
+            return;
+        }
+
+        try {
+            this.userData.name = document.getElementById('profileNameInput').value.trim();
+            this.userData.profile = {
+                age: document.getElementById('profileAge').value ? parseInt(document.getElementById('profileAge').value) : null,
+                height: document.getElementById('profileHeight').value ? parseFloat(document.getElementById('profileHeight').value) : null,
+                weight: document.getElementById('profileWeight').value ? parseFloat(document.getElementById('profileWeight').value) : null,
+                fitness_goal: document.getElementById('profileGoal').value || null,
+                bio: document.getElementById('profileBio').value.trim() || null
+            };
+
+            await this.saveUserData();
+            this.updateProfile();
+            this.updateDashboard();
+            this.showToast('Profile updated successfully!', 'success');
+        } catch (error) {
+            console.error('Error saving profile:', error);
+            this.showToast(`Error: ${error.message || 'Failed to save profile. Check console for details.'}`, 'error');
+        }
+    }
+
+    async updatePassword(currentPassword, newPassword) {
+        if (!this.currentUser) return false;
+
+        try {
+            // Supabase handles password updates directly through auth
+            await this.db.updatePassword(newPassword);
+            this.showToast('Password updated successfully!', 'success');
+            return true;
+        } catch (error) {
+            console.error('Password update error:', error);
+            this.showToast(error.message || 'Error updating password', 'error');
+            return false;
+        }
+    }
+
+    updateNavbar() {
+        const authNavItem = document.getElementById('authNavItem');
+        if (this.currentUser) {
+            authNavItem.innerHTML = `
+                <a href="#" class="nav-link" id="logoutLink">
+                    <i class="fas fa-sign-out-alt"></i> Logout
+                </a>
+            `;
+            document.getElementById('logoutLink').addEventListener('click', (e) => {
+                e.preventDefault();
+                this.logout();
+            });
+        } else {
+            authNavItem.innerHTML = `
+                <a href="#" class="nav-link" id="loginLink" data-section="login">Login</a>
+            `;
+        }
+    }
+
+    // Event Listeners
+    setupEventListeners() {
+        // Navigation
+        document.querySelectorAll('.nav-link').forEach(link => {
+            link.addEventListener('click', (e) => {
+                e.preventDefault();
+                if (!this.currentUser && link.dataset.section !== 'login' && link.dataset.section !== 'signup') {
+                    this.showToast('Please login to continue', 'info');
+                    this.showSection('login');
+                    return;
+                }
+                const section = link.dataset.section;
+                if (section) {
+                    this.showSection(section);
+                    document.querySelectorAll('.nav-link').forEach(l => l.classList.remove('active'));
+                    link.classList.add('active');
+                }
+            });
+        });
+
+        // Login Form
+        document.getElementById('loginForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const email = document.getElementById('loginEmail').value.trim();
+            const password = document.getElementById('loginPassword').value;
+            await this.login(email, password);
+        });
+
+        // Signup Form
+        document.getElementById('signupForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const username = document.getElementById('signupUsername').value.trim();
+            const name = document.getElementById('signupName').value.trim();
+            const email = document.getElementById('signupEmail').value.trim();
+            const password = document.getElementById('signupPassword').value;
+            const confirmPassword = document.getElementById('signupConfirmPassword').value;
+
+            if (password !== confirmPassword) {
+                this.showToast('Passwords do not match', 'error');
+                return;
+            }
+
+            if (password.length < 6) {
+                this.showToast('Password must be at least 6 characters', 'error');
+                return;
+            }
+
+            await this.signup(username, name, email, password);
+        });
+
+        // Show Signup
+        document.getElementById('showSignup').addEventListener('click', (e) => {
+            e.preventDefault();
+            this.showSection('signup');
+        });
+
+        // Show Login
+        document.getElementById('showLogin').addEventListener('click', (e) => {
+            e.preventDefault();
+            this.showSection('login');
+        });
+
+        // Workout Form
+        document.getElementById('addWorkoutBtn')?.addEventListener('click', () => {
+            if (!this.currentUser) {
+                this.showToast('Please login to log workouts', 'info');
+                return;
+            }
+            document.getElementById('workoutForm').classList.remove('hidden');
+        });
+
+        document.getElementById('cancelWorkoutBtn')?.addEventListener('click', () => {
+            document.getElementById('workoutForm').classList.add('hidden');
+            this.resetWorkoutForm();
+        });
+
+        document.getElementById('saveWorkoutBtn')?.addEventListener('click', () => {
+            this.saveWorkout();
+        });
+
+        // Profile Form
+        document.getElementById('profileForm')?.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            await this.saveProfile();
+        });
+
+        // Password Form
+        document.getElementById('passwordForm')?.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const currentPassword = document.getElementById('currentPassword').value;
+            const newPassword = document.getElementById('newPassword').value;
+            const confirmPassword = document.getElementById('confirmPassword').value;
+
+            if (newPassword !== confirmPassword) {
+                this.showToast('New passwords do not match', 'error');
+                return;
+            }
+
+            if (newPassword.length < 6) {
+                this.showToast('Password must be at least 6 characters', 'error');
+                return;
+            }
+
+            await this.updatePassword(currentPassword, newPassword);
+            document.getElementById('passwordForm').reset();
+        });
+
+        // Leaderboard Filters
+        document.querySelectorAll('.filter-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                this.updateLeaderboard();
+            });
+        });
+    }
+
+    showSection(sectionId) {
+        document.querySelectorAll('.section').forEach(section => {
+            section.classList.remove('active');
+        });
+        const section = document.getElementById(sectionId);
+        if (section) {
+            section.classList.add('active');
+        }
+    }
+
+    async saveWorkout() {
+        if (!this.currentUser) {
+            this.showToast('Please login to log workouts', 'info');
+            return;
+        }
+
+        const name = document.getElementById('workoutName').value.trim();
+        const type = document.getElementById('workoutType').value;
+        const duration = parseInt(document.getElementById('workoutDuration').value);
+        const intensity = document.getElementById('workoutIntensity').value;
+
+        if (!name || !duration || duration < 1) {
+            this.showToast('Please fill in all fields correctly', 'error');
+            return;
+        }
+
+        try {
+            await this.addWorkout(name, type, duration, intensity);
+            document.getElementById('workoutForm').classList.add('hidden');
+            this.resetWorkoutForm();
+            this.showSection('dashboard');
+            document.querySelectorAll('.nav-link').forEach(l => l.classList.remove('active'));
+            const dashboardLink = document.querySelector('[data-section="dashboard"]');
+            if (dashboardLink) dashboardLink.classList.add('active');
+        } catch (error) {
+            console.error('Error saving workout:', error);
+            this.showToast(`Error: ${error.message || 'Failed to save workout. Check console for details.'}`, 'error');
+        }
+    }
+
+    resetWorkoutForm() {
+        document.getElementById('workoutName').value = '';
+        document.getElementById('workoutType').value = 'cardio';
+        document.getElementById('workoutDuration').value = '';
+        document.getElementById('workoutIntensity').value = 'medium';
+    }
+
+    // Toast Notifications
+    showToast(message, type = 'info') {
+        const toast = document.getElementById('toast');
+        const icon = toast.querySelector('.toast-icon');
+        const messageEl = toast.querySelector('.toast-message');
+
+        toast.className = `toast ${type}`;
+        
+        if (type === 'success') {
+            icon.className = 'toast-icon fas fa-check-circle';
+        } else if (type === 'error') {
+            icon.className = 'toast-icon fas fa-exclamation-circle';
+        } else {
+            icon.className = 'toast-icon fas fa-info-circle';
+        }
+
+        messageEl.textContent = message;
+        toast.classList.remove('hidden');
+
+        setTimeout(() => {
+            toast.classList.add('hidden');
+        }, 3000);
+    }
+}
+
+// Initialize the app
+document.addEventListener('DOMContentLoaded', () => {
+    window.fitnessGame = new FitnessGame();
+});
