@@ -118,6 +118,13 @@ class FitnessGame {
         try {
             const { user } = await this.db.signUp(email, password, { username, name });
             this.currentUser = user;
+            
+            // Remove initial hide style to allow sections to show
+            const initialStyle = document.getElementById('initialHideStyle');
+            if (initialStyle) {
+                initialStyle.remove();
+            }
+            
             await this.loadUserData();
             this.updateNavbar();
             this.showToast('Account created successfully! Welcome to FitnessLeveling!', 'success');
