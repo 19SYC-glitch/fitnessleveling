@@ -101,16 +101,43 @@ class FitnessGame {
     }
 
     async logout() {
+        // Confirm logout
+        if (!confirm('Are you sure you want to logout?')) {
+            return;
+        }
+
         try {
+            // Sign out from Supabase
             await this.db.signOut();
+            
+            // Clear all local state
+            this.currentUser = null;
+            this.userData = null;
+            this.achievements = [];
+            this.workouts = [];
+            this.friends = [];
+            this.pendingRequests = [];
+            this.viewingProfileId = null;
+            
+            // Update UI
+            this.updateNavbar();
+            this.showSection('login');
+            
+            // Clear any forms
+            this.resetWorkoutForm();
+            if (document.getElementById('loginForm')) {
+                document.getElementById('loginForm').reset();
+            }
+            
+            this.showToast('Logged out successfully', 'success');
+        } catch (error) {
+            console.error('Logout error:', error);
+            // Even if there's an error, clear local state
             this.currentUser = null;
             this.userData = null;
             this.updateNavbar();
             this.showSection('login');
-            this.showToast('Logged out successfully', 'info');
-        } catch (error) {
-            console.error('Logout error:', error);
-            this.showToast('Error logging out', 'error');
+            this.showToast('Logged out', 'info');
         }
     }
 
