@@ -306,12 +306,25 @@ class FitnessGame {
 
     // Achievement System
     async checkAchievements() {
+        // Get workout statistics for type-specific achievements
+        const workouts = await this.db.getWorkoutsByUserId(this.currentUser.id);
+        const cardioCount = workouts.filter(w => w.type === 'cardio').length;
+        const strengthCount = workouts.filter(w => w.type === 'strength').length;
+        const flexibilityCount = workouts.filter(w => w.type === 'flexibility').length;
+        const sportsCount = workouts.filter(w => w.type === 'sports').length;
+        const highIntensityCount = workouts.filter(w => w.intensity === 'high').length;
+        const longWorkouts = workouts.filter(w => w.duration >= 60).length;
+        const totalDuration = workouts.reduce((sum, w) => sum + (w.duration || 0), 0);
+
         const achievements = [
+            // First Steps
             {
                 id: 'first-workout',
                 check: () => this.userData.totalWorkouts >= 1,
                 xp: 50
             },
+            
+            // Streak Achievements
             {
                 id: 'streak-3',
                 check: () => this.userData.streak >= 3,
@@ -323,14 +336,41 @@ class FitnessGame {
                 xp: 250
             },
             {
+                id: 'streak-14',
+                check: () => this.userData.streak >= 14,
+                xp: 500
+            },
+            {
                 id: 'streak-30',
                 check: () => this.userData.streak >= 30,
                 xp: 1000
             },
             {
+                id: 'streak-60',
+                check: () => this.userData.streak >= 60,
+                xp: 2500
+            },
+            {
+                id: 'streak-90',
+                check: () => this.userData.streak >= 90,
+                xp: 5000
+            },
+            {
+                id: 'streak-100',
+                check: () => this.userData.streak >= 100,
+                xp: 7500
+            },
+            
+            // Workout Count Achievements
+            {
                 id: 'workouts-10',
                 check: () => this.userData.totalWorkouts >= 10,
                 xp: 200
+            },
+            {
+                id: 'workouts-25',
+                check: () => this.userData.totalWorkouts >= 25,
+                xp: 400
             },
             {
                 id: 'workouts-50',
@@ -343,6 +383,23 @@ class FitnessGame {
                 xp: 1500
             },
             {
+                id: 'workouts-200',
+                check: () => this.userData.totalWorkouts >= 200,
+                xp: 3000
+            },
+            {
+                id: 'workouts-500',
+                check: () => this.userData.totalWorkouts >= 500,
+                xp: 7500
+            },
+            {
+                id: 'workouts-1000',
+                check: () => this.userData.totalWorkouts >= 1000,
+                xp: 15000
+            },
+            
+            // Level Achievements
+            {
                 id: 'level-5',
                 check: () => this.userData.level >= 5,
                 xp: 300
@@ -351,33 +408,312 @@ class FitnessGame {
                 id: 'level-10',
                 check: () => this.userData.level >= 10,
                 xp: 750
+            },
+            {
+                id: 'level-15',
+                check: () => this.userData.level >= 15,
+                xp: 1500
+            },
+            {
+                id: 'level-20',
+                check: () => this.userData.level >= 20,
+                xp: 2500
+            },
+            {
+                id: 'level-25',
+                check: () => this.userData.level >= 25,
+                xp: 4000
+            },
+            {
+                id: 'level-30',
+                check: () => this.userData.level >= 30,
+                xp: 6000
+            },
+            {
+                id: 'level-50',
+                check: () => this.userData.level >= 50,
+                xp: 15000
+            },
+            
+            // Workout Type Achievements
+            {
+                id: 'cardio-10',
+                check: () => cardioCount >= 10,
+                xp: 200
+            },
+            {
+                id: 'cardio-50',
+                check: () => cardioCount >= 50,
+                xp: 800
+            },
+            {
+                id: 'strength-10',
+                check: () => strengthCount >= 10,
+                xp: 200
+            },
+            {
+                id: 'strength-50',
+                check: () => strengthCount >= 50,
+                xp: 800
+            },
+            {
+                id: 'flexibility-10',
+                check: () => flexibilityCount >= 10,
+                xp: 200
+            },
+            {
+                id: 'sports-10',
+                check: () => sportsCount >= 10,
+                xp: 200
+            },
+            {
+                id: 'well-rounded',
+                check: () => cardioCount >= 5 && strengthCount >= 5 && flexibilityCount >= 5,
+                xp: 500
+            },
+            
+            // Intensity Achievements
+            {
+                id: 'high-intensity-10',
+                check: () => highIntensityCount >= 10,
+                xp: 300
+            },
+            {
+                id: 'high-intensity-50',
+                check: () => highIntensityCount >= 50,
+                xp: 1000
+            },
+            {
+                id: 'intensity-master',
+                check: () => highIntensityCount >= 100,
+                xp: 2500
+            },
+            
+            // Duration Achievements
+            {
+                id: 'long-workout-5',
+                check: () => longWorkouts >= 5,
+                xp: 300
+            },
+            {
+                id: 'long-workout-20',
+                check: () => longWorkouts >= 20,
+                xp: 1000
+            },
+            {
+                id: 'marathon-session',
+                check: () => longWorkouts >= 50,
+                xp: 2500
+            },
+            {
+                id: 'time-invested',
+                check: () => totalDuration >= 1000, // 1000 minutes total
+                xp: 500
+            },
+            {
+                id: 'dedication-master',
+                check: () => totalDuration >= 5000, // 5000 minutes total
+                xp: 2000
+            },
+            
+            // XP Milestones
+            {
+                id: 'xp-1000',
+                check: () => this.userData.xp >= 1000,
+                xp: 100
+            },
+            {
+                id: 'xp-5000',
+                check: () => this.userData.xp >= 5000,
+                xp: 500
+            },
+            {
+                id: 'xp-10000',
+                check: () => this.userData.xp >= 10000,
+                xp: 1000
+            },
+            {
+                id: 'xp-25000',
+                check: () => this.userData.xp >= 25000,
+                xp: 2500
+            },
+            {
+                id: 'xp-50000',
+                check: () => this.userData.xp >= 50000,
+                xp: 5000
+            },
+            {
+                id: 'xp-100000',
+                check: () => this.userData.xp >= 100000,
+                xp: 10000
+            },
+            
+            // Social Achievements
+            {
+                id: 'first-friend',
+                check: async () => {
+                    const friends = await this.db.getFriendsList(this.currentUser.id);
+                    return friends && friends.length >= 1;
+                },
+                xp: 100
+            },
+            {
+                id: 'social-butterfly',
+                check: async () => {
+                    const friends = await this.db.getFriendsList(this.currentUser.id);
+                    return friends && friends.length >= 10;
+                },
+                xp: 500
+            },
+            {
+                id: 'profile-complete',
+                check: () => {
+                    return this.userData.age && this.userData.height && 
+                           this.userData.weight && this.userData.fitness_goal && 
+                           this.userData.bio;
+                },
+                xp: 200
             }
         ];
 
         for (const achievement of achievements) {
-            if (achievement.check() && !this.achievements.includes(achievement.id)) {
-                await this.db.addAchievement(this.currentUser.id, achievement.id);
-                this.achievements.push(achievement.id);
-                await this.addXP(achievement.xp);
-                this.userData.badges.push(achievement.id);
-                this.showToast(`Achievement Unlocked: ${this.getAchievementName(achievement.id)}! +${achievement.xp} XP`, 'success');
+            try {
+                const isUnlocked = typeof achievement.check === 'function' 
+                    ? await achievement.check() 
+                    : achievement.check();
+                
+                if (isUnlocked && !this.achievements.includes(achievement.id)) {
+                    await this.db.addAchievement(this.currentUser.id, achievement.id);
+                    this.achievements.push(achievement.id);
+                    await this.addXP(achievement.xp);
+                    this.userData.badges.push(achievement.id);
+                    this.showToast(`Achievement Unlocked: ${this.getAchievementName(achievement.id)}! +${achievement.xp} XP`, 'success');
+                }
+            } catch (error) {
+                console.error(`Error checking achievement ${achievement.id}:`, error);
             }
         }
     }
 
     getAchievementName(id) {
         const names = {
+            // First Steps
             'first-workout': 'First Steps',
+            
+            // Streaks
             'streak-3': 'On Fire',
             'streak-7': 'Week Warrior',
+            'streak-14': 'Two Week Champion',
             'streak-30': 'Month Master',
+            'streak-60': 'Two Month Legend',
+            'streak-90': 'Quarter Year Champion',
+            'streak-100': 'Century Streak',
+            
+            // Workout Counts
             'workouts-10': 'Dedicated',
+            'workouts-25': 'Quarter Century',
             'workouts-50': 'Fitness Fanatic',
             'workouts-100': 'Century Club',
+            'workouts-200': 'Double Century',
+            'workouts-500': 'Half Millennium',
+            'workouts-1000': 'Millennium Master',
+            
+            // Levels
             'level-5': 'Rising Star',
-            'level-10': 'Elite Athlete'
+            'level-10': 'Elite Athlete',
+            'level-15': 'Fitness Expert',
+            'level-20': 'Master Trainer',
+            'level-25': 'Fitness Legend',
+            'level-30': 'Elite Master',
+            'level-50': 'Fitness Deity',
+            
+            // Workout Types
+            'cardio-10': 'Cardio Enthusiast',
+            'cardio-50': 'Cardio Master',
+            'strength-10': 'Strength Builder',
+            'strength-50': 'Strength Master',
+            'flexibility-10': 'Flexibility Pro',
+            'sports-10': 'Sports Enthusiast',
+            'well-rounded': 'Well Rounded',
+            
+            // Intensity
+            'high-intensity-10': 'High Intensity Starter',
+            'high-intensity-50': 'High Intensity Warrior',
+            'intensity-master': 'Intensity Master',
+            
+            // Duration
+            'long-workout-5': 'Endurance Builder',
+            'long-workout-20': 'Endurance Master',
+            'marathon-session': 'Marathon Runner',
+            'time-invested': 'Time Investor',
+            'dedication-master': 'Dedication Master',
+            
+            // XP Milestones
+            'xp-1000': 'XP Novice',
+            'xp-5000': 'XP Apprentice',
+            'xp-10000': 'XP Expert',
+            'xp-25000': 'XP Master',
+            'xp-50000': 'XP Grandmaster',
+            'xp-100000': 'XP Legend',
+            
+            // Social
+            'first-friend': 'Social Starter',
+            'social-butterfly': 'Social Butterfly',
+            'profile-complete': 'Profile Complete'
         };
         return names[id] || id;
+    }
+
+    getAchievementIcon(id) {
+        const icons = {
+            'first-workout': 'fa-star',
+            'streak-3': 'fa-fire',
+            'streak-7': 'fa-fire',
+            'streak-14': 'fa-fire',
+            'streak-30': 'fa-fire',
+            'streak-60': 'fa-fire',
+            'streak-90': 'fa-fire',
+            'streak-100': 'fa-fire',
+            'workouts-10': 'fa-dumbbell',
+            'workouts-25': 'fa-dumbbell',
+            'workouts-50': 'fa-dumbbell',
+            'workouts-100': 'fa-trophy',
+            'workouts-200': 'fa-trophy',
+            'workouts-500': 'fa-trophy',
+            'workouts-1000': 'fa-trophy',
+            'level-5': 'fa-crown',
+            'level-10': 'fa-crown',
+            'level-15': 'fa-crown',
+            'level-20': 'fa-crown',
+            'level-25': 'fa-crown',
+            'level-30': 'fa-crown',
+            'level-50': 'fa-crown',
+            'cardio-10': 'fa-running',
+            'cardio-50': 'fa-running',
+            'strength-10': 'fa-dumbbell',
+            'strength-50': 'fa-dumbbell',
+            'flexibility-10': 'fa-yoga',
+            'sports-10': 'fa-football-ball',
+            'well-rounded': 'fa-star',
+            'high-intensity-10': 'fa-bolt',
+            'high-intensity-50': 'fa-bolt',
+            'intensity-master': 'fa-bolt',
+            'long-workout-5': 'fa-clock',
+            'long-workout-20': 'fa-clock',
+            'marathon-session': 'fa-clock',
+            'time-invested': 'fa-hourglass-half',
+            'dedication-master': 'fa-hourglass-half',
+            'xp-1000': 'fa-gem',
+            'xp-5000': 'fa-gem',
+            'xp-10000': 'fa-gem',
+            'xp-25000': 'fa-gem',
+            'xp-50000': 'fa-gem',
+            'xp-100000': 'fa-gem',
+            'first-friend': 'fa-user-friends',
+            'social-butterfly': 'fa-user-friends',
+            'profile-complete': 'fa-check-circle'
+        };
+        return icons[id] || 'fa-medal';
     }
 
     // Workout Management
