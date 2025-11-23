@@ -265,5 +265,167 @@ class SupabaseDatabase {
         if (error) throw error;
         return data;
     }
+
+    // Friends/Relationships Methods
+    async searchUsersByUsername(username) {
+        const { data, error } = await this.client
+            .from('users')
+            .select('id, username, name, xp, level, total_workouts')
+            .ilike('username', `%${username}%`)
+            .limit(10);
+
+        if (error) throw error;
+        return data || [];
+    }
+
+    async sendFriendRequest(userId, friendId) {
+        // Check if friendship already exists
+        const existing = await this.getFriendship(userId, friendId);
+        if (existing) {
+            throw new Error('Friendship already exists');
+        }
+
+        // Create friend request (bidirectional for easier queries)
+        const { data, error } = await this.client
+            .from('friendships')
+            .insert([
+                {
+                    user_id: userId,
+                    friend_id: friendId,
+                    status: 'pending',
+                    requested_by: userId
+                },
+                {
+                    user_id: friendId,
+                    friend_id: userId,
+                    status: 'pending',
+                    requested_by: userId
+                }
+            ])
+            .select();
+
+        if (error) throw error;
+        return data;
+    }
+
+    async getFriendship(userId, friendId) {
+        const { data, error } = await this.client
+            .from('friendships')
+            .select('*')
+            .eq('user_id', userId)
+            .eq('friend_id', friendId)
+            .single();
+
+        if (error && error.code !== 'PGRST116') throw error; // PGRST116 = no rows returned
+        return data;
+    }
+
+    async acceptFriendRequest(userId, friendId) {
+        // Update both directions of the friendship
+        const { error: error1 } = await this.client
+            .from('friendships')
+            .update({ status: 'accepted', updated_at: new Date().toISOString() })
+            .eq('user_id', userId)
+            .eq('friend_id', friendId);
+
+        const { error: error2 } = await this.client
+            .from('friendships')
+            .update({ status: 'accepted', updated_at: new Date().toISOString() })
+            .eq('user_id', friendId)
+            .eq('friend_id', userId);
+
+        if (error1) throw error1;
+        if (error2) throw error2;
+
+        // Return updated friendship
+        return await this.getFriendship(userId, friendId);
+    }
+
+    async rejectFriendRequest(userId, friendId) {
+        // Delete both directions of the friendship
+        const { error: error1 } = await this.client
+            .from('friendships')
+            .delete()
+            .eq('user_id', userId)
+            .eq('friend_id', friendId);
+
+        const { error: error2 } = await this.client
+            .from('friendships')
+            .delete()
+            .eq('user_id', friendId)
+            .eq('friend_id', userId);
+
+        if (error1) throw error1;
+        if (error2) throw error2;
+    }
+
+    async getFriends(userId) {
+        const { data, error } = await this.client
+            .from('friendships')
+            .select(`
+                friend_id,
+                status,
+                friends:friend_id!inner (
+                    id,
+                    username,
+                    name,
+                    xp,
+                    level,
+                    total_workouts,
+                    streak
+                )
+            `)
+            .eq('user_id', userId)
+            .eq('status', 'accepted');
+
+        if (error) throw error;
+        return (data || []).map(f => ({
+            ...f.friends,
+            friendship_id: f.friend_id
+        }));
+    }
+
+    async getPendingRequests(userId) {
+        const { data, error } = await this.client
+            .from('friendships')
+            .select(`
+                friend_id,
+                requested_by,
+                friends:friend_id!inner (
+                    id,
+                    username,
+                    name,
+                    xp,
+                    level
+                )
+            `)
+            .eq('user_id', userId)
+            .eq('status', 'pending')
+            .neq('requested_by', userId); // Only requests sent TO user, not BY user
+
+        if (error) throw error;
+        return (data || []).map(f => ({
+            ...f.friends,
+            requested_by: f.requested_by
+        }));
+    }
+
+    async getFriendProgress(friendId) {
+        const profile = await this.getUserProfile(friendId);
+        const workouts = await this.getWorkoutsByUserId(friendId);
+        const achievements = await this.getAchievementsByUserId(friendId);
+
+        return {
+            profile,
+            workouts: workouts.slice(0, 10), // Last 10 workouts
+            achievements,
+            stats: {
+                totalWorkouts: profile.total_workouts || 0,
+                currentStreak: profile.streak || 0,
+                totalXP: profile.xp || 0,
+                level: profile.level || 1
+            }
+        };
+    }
 }
 

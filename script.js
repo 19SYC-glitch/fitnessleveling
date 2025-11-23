@@ -6,6 +6,8 @@ class FitnessGame {
         this.userData = null;
         this.achievements = [];
         this.workouts = [];
+        this.friends = [];
+        this.pendingRequests = [];
         this.init();
     }
 
@@ -22,6 +24,7 @@ class FitnessGame {
                 this.updateWorkouts();
                 this.updateLeaderboard();
                 this.updateProfile();
+                this.updateFriends();
                 this.checkStreak();
             } else {
                 this.showSection('login');
@@ -610,6 +613,11 @@ class FitnessGame {
                     this.showSection(section);
                     document.querySelectorAll('.nav-link').forEach(l => l.classList.remove('active'));
                     link.classList.add('active');
+                    
+                    // Load friends data when navigating to friends section
+                    if (section === 'friends') {
+                        this.updateFriends();
+                    }
                 }
             });
         });
@@ -709,6 +717,240 @@ class FitnessGame {
                 this.updateLeaderboard();
             });
         });
+
+        // Friends Section
+        document.getElementById('addFriendBtn')?.addEventListener('click', () => {
+            document.getElementById('addFriendForm').classList.toggle('hidden');
+        });
+
+        document.getElementById('searchUserBtn')?.addEventListener('click', () => {
+            this.searchUsers();
+        });
+
+        // Friends Tabs
+        document.querySelectorAll('.tab-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const tabName = btn.dataset.tab;
+                document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+                document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+                btn.classList.add('active');
+                document.getElementById(tabName).classList.add('active');
+            });
+        });
+    }
+
+    // Friends System
+    async searchUsers() {
+        const username = document.getElementById('searchUsername').value.trim();
+        if (!username) {
+            this.showToast('Please enter a username', 'error');
+            return;
+        }
+
+        try {
+            const results = await this.db.searchUsersByUsername(username);
+            const container = document.getElementById('searchResults');
+            
+            if (results.length === 0) {
+                container.innerHTML = '<p class="empty-state">No users found</p>';
+                return;
+            }
+
+            // Filter out current user
+            const filteredResults = results.filter(u => u.id !== this.currentUser.id);
+            
+            if (filteredResults.length === 0) {
+                container.innerHTML = '<p class="empty-state">No other users found</p>';
+                return;
+            }
+
+            container.innerHTML = filteredResults.map(user => {
+                const isFriend = this.friends.some(f => f.id === user.id);
+                const hasPendingRequest = this.pendingRequests.some(r => r.id === user.id);
+                
+                return `
+                    <div class="search-result-item">
+                        <div class="search-result-info">
+                            <h3>${user.name}</h3>
+                            <p>@${user.username} • Level ${user.level} • ${user.xp || 0} XP</p>
+                        </div>
+                        <div>
+                            ${isFriend ? 
+                                '<span class="btn btn-secondary btn-small">Already Friends</span>' :
+                                hasPendingRequest ?
+                                '<span class="btn btn-secondary btn-small">Request Pending</span>' :
+                                `<button class="btn btn-primary btn-small" onclick="window.fitnessGame.sendFriendRequest('${user.id}')">
+                                    <i class="fas fa-user-plus"></i> Add Friend
+                                </button>`
+                            }
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        } catch (error) {
+            console.error('Search error:', error);
+            this.showToast('Error searching users', 'error');
+        }
+    }
+
+    async sendFriendRequest(friendId) {
+        if (!this.currentUser) return;
+
+        try {
+            await this.db.sendFriendRequest(this.currentUser.id, friendId);
+            this.showToast('Friend request sent!', 'success');
+            await this.updateFriends();
+            this.searchUsers(); // Refresh search results
+        } catch (error) {
+            console.error('Friend request error:', error);
+            this.showToast(error.message || 'Failed to send friend request', 'error');
+        }
+    }
+
+    async acceptFriendRequest(friendId) {
+        if (!this.currentUser) return;
+
+        try {
+            await this.db.acceptFriendRequest(this.currentUser.id, friendId);
+            this.showToast('Friend request accepted!', 'success');
+            await this.updateFriends();
+        } catch (error) {
+            console.error('Accept friend error:', error);
+            this.showToast('Failed to accept friend request', 'error');
+        }
+    }
+
+    async rejectFriendRequest(friendId) {
+        if (!this.currentUser) return;
+
+        try {
+            await this.db.rejectFriendRequest(this.currentUser.id, friendId);
+            this.showToast('Friend request rejected', 'info');
+            await this.updateFriends();
+        } catch (error) {
+            console.error('Reject friend error:', error);
+            this.showToast('Failed to reject friend request', 'error');
+        }
+    }
+
+    async updateFriends() {
+        if (!this.currentUser) return;
+
+        try {
+            this.friends = await this.db.getFriends(this.currentUser.id);
+            this.pendingRequests = await this.db.getPendingRequests(this.currentUser.id);
+            
+            this.renderFriends();
+            this.renderPendingRequests();
+        } catch (error) {
+            console.error('Update friends error:', error);
+        }
+    }
+
+    renderFriends() {
+        const container = document.getElementById('friendsContainer');
+        
+        if (this.friends.length === 0) {
+            container.innerHTML = '<p class="empty-state">No friends yet. Add some friends to see their progress!</p>';
+            return;
+        }
+
+        container.innerHTML = this.friends.map(friend => {
+            return `
+                <div class="friend-card">
+                    <div class="friend-card-header">
+                        <div class="friend-avatar">
+                            <i class="fas fa-user"></i>
+                        </div>
+                        <div class="friend-info">
+                            <h3>${friend.name}</h3>
+                            <p>@${friend.username}</p>
+                        </div>
+                    </div>
+                    <div class="friend-stats">
+                        <div class="friend-stat">
+                            <span class="friend-stat-value">${friend.level || 1}</span>
+                            <span class="friend-stat-label">Level</span>
+                        </div>
+                        <div class="friend-stat">
+                            <span class="friend-stat-value">${(friend.xp || 0).toLocaleString()}</span>
+                            <span class="friend-stat-label">XP</span>
+                        </div>
+                        <div class="friend-stat">
+                            <span class="friend-stat-value">${friend.total_workouts || 0}</span>
+                            <span class="friend-stat-label">Workouts</span>
+                        </div>
+                        <div class="friend-stat">
+                            <span class="friend-stat-value">${friend.streak || 0}</span>
+                            <span class="friend-stat-label">Streak</span>
+                        </div>
+                    </div>
+                    <div class="friend-actions">
+                        <button class="btn btn-primary btn-small" onclick="window.fitnessGame.viewFriendProgress('${friend.id}')">
+                            <i class="fas fa-chart-line"></i> View Progress
+                        </button>
+                    </div>
+                </div>
+            `;
+        }).join('');
+    }
+
+    renderPendingRequests() {
+        const container = document.getElementById('pendingRequestsContainer');
+        
+        if (this.pendingRequests.length === 0) {
+            container.innerHTML = '<p class="empty-state">No pending requests</p>';
+            return;
+        }
+
+        container.innerHTML = this.pendingRequests.map(request => {
+            return `
+                <div class="request-card">
+                    <div class="request-info">
+                        <div class="friend-avatar">
+                            <i class="fas fa-user"></i>
+                        </div>
+                        <div>
+                            <h3>${request.name}</h3>
+                            <p>@${request.username} • Level ${request.level}</p>
+                        </div>
+                    </div>
+                    <div class="request-actions">
+                        <button class="btn btn-primary btn-small" onclick="window.fitnessGame.acceptFriendRequest('${request.id}')">
+                            <i class="fas fa-check"></i> Accept
+                        </button>
+                        <button class="btn btn-secondary btn-small" onclick="window.fitnessGame.rejectFriendRequest('${request.id}')">
+                            <i class="fas fa-times"></i> Reject
+                        </button>
+                    </div>
+                </div>
+            `;
+        }).join('');
+    }
+
+    async viewFriendProgress(friendId) {
+        try {
+            const progress = await this.db.getFriendProgress(friendId);
+            
+            // Create a modal or navigate to friend profile view
+            const friendName = progress.profile.name;
+            const stats = progress.stats;
+            
+            let message = `\n${friendName}'s Progress:\n\n`;
+            message += `Level: ${stats.level}\n`;
+            message += `XP: ${stats.totalXP.toLocaleString()}\n`;
+            message += `Workouts: ${stats.totalWorkouts}\n`;
+            message += `Streak: ${stats.currentStreak} days\n`;
+            message += `Achievements: ${progress.achievements.length}\n`;
+            message += `Recent Workouts: ${progress.workouts.length}`;
+            
+            alert(message); // Simple alert for now, can be enhanced with a modal
+            
+            // TODO: Create a proper friend profile modal/view
+        } catch (error) {
+            console.error('View friend progress error:', error);
+            this.showToast('Failed to load friend progress', 'error');
+        }
     }
 
     showSection(sectionId) {

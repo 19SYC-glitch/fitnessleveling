@@ -23,6 +23,7 @@
                 <li><a href="#" class="nav-link" data-section="workouts">Workouts</a></li>
                 <li><a href="#" class="nav-link" data-section="achievements">Achievements</a></li>
                 <li><a href="#" class="nav-link" data-section="leaderboard">Leaderboard</a></li>
+                <li><a href="#" class="nav-link" data-section="friends">Friends</a></li>
                 <li><a href="#" class="nav-link" data-section="profile">Profile</a></li>
                 <li id="authNavItem">
                     <a href="#" class="nav-link" id="loginLink" data-section="login">Login</a>
@@ -267,6 +268,49 @@
                 </div>
                 <div id="leaderboardList" class="leaderboard-list">
                     <p class="empty-state">No leaderboard data yet. Start working out!</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- Friends Section -->
+        <section id="friends" class="section">
+            <div class="section-header">
+                <h1>Friends</h1>
+                <button class="btn btn-primary" id="addFriendBtn">
+                    <i class="fas fa-user-plus"></i> Add Friend
+                </button>
+            </div>
+
+            <div id="addFriendForm" class="workout-form hidden">
+                <h2>Find and Add Friends</h2>
+                <div class="form-group">
+                    <label for="searchUsername">Search by Username</label>
+                    <input type="text" id="searchUsername" placeholder="Enter username">
+                    <button type="button" class="btn btn-primary" id="searchUserBtn" style="margin-top: 0.5rem;">
+                        <i class="fas fa-search"></i> Search
+                    </button>
+                </div>
+                <div id="searchResults" class="search-results"></div>
+            </div>
+
+            <div class="friends-tabs">
+                <button class="tab-btn active" data-tab="friends-list">My Friends</button>
+                <button class="tab-btn" data-tab="pending-requests">Pending Requests</button>
+            </div>
+
+            <div class="friends-content">
+                <div id="friends-list" class="tab-content active">
+                    <h2>My Friends</h2>
+                    <div id="friendsContainer" class="friends-grid">
+                        <p class="empty-state">No friends yet. Add some friends to see their progress!</p>
+                    </div>
+                </div>
+
+                <div id="pending-requests" class="tab-content">
+                    <h2>Friend Requests</h2>
+                    <div id="pendingRequestsContainer" class="friends-grid">
+                        <p class="empty-state">No pending requests</p>
+                    </div>
                 </div>
             </div>
         </section>
