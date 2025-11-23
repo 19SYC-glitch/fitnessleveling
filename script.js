@@ -24,6 +24,12 @@ class FitnessGame {
             this.setupEventListeners();
             
             if (isAuthenticated && this.currentUser) {
+                // Remove initial hide style to allow sections to show
+                const initialStyle = document.getElementById('initialHideStyle');
+                if (initialStyle) {
+                    initialStyle.remove();
+                }
+                
                 // User is logged in, load their data and show dashboard
                 await this.loadUserData();
                 this.updateDashboard();
@@ -78,6 +84,13 @@ class FitnessGame {
         try {
             const { user } = await this.db.signInWithUsername(username, password);
             this.currentUser = user;
+            
+            // Remove initial hide style to allow sections to show
+            const initialStyle = document.getElementById('initialHideStyle');
+            if (initialStyle) {
+                initialStyle.remove();
+            }
+            
             await this.loadUserData();
             this.updateNavbar();
             this.showToast('Welcome back!', 'success');
@@ -1253,14 +1266,22 @@ class FitnessGame {
             return;
         }
         
+        // Remove the initial hide style if user is authenticated (allows sections to show)
+        if (this.currentUser) {
+            const initialStyle = document.getElementById('initialHideStyle');
+            if (initialStyle) {
+                initialStyle.remove();
+            }
+        }
+        
         // Hide all sections first
         this.hideAllSections();
         
-        // Show requested section
+        // Show requested section with !important to override any remaining inline styles
         const section = document.getElementById(sectionId);
         if (section) {
             section.classList.add('active');
-            section.style.display = 'block';
+            section.style.setProperty('display', 'block', 'important');
         }
     }
 
