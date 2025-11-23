@@ -15,11 +15,15 @@ class FitnessGame {
 
     async init() {
         try {
+            // Always show login page first
+            this.showSection('login');
+            
             await this.db.init();
-            await this.checkAuth();
+            const isAuthenticated = await this.checkAuth();
             this.setupEventListeners();
             
-            if (this.currentUser) {
+            if (isAuthenticated && this.currentUser) {
+                // User is logged in, load their data and show dashboard
                 await this.loadUserData();
                 this.updateDashboard();
                 this.updateAchievements();
@@ -28,11 +32,20 @@ class FitnessGame {
                 this.updateProfile();
                 this.updateFriends();
                 this.checkStreak();
+                this.showSection('dashboard');
+                // Update navigation to show dashboard as active
+                document.querySelectorAll('.nav-link').forEach(l => l.classList.remove('active'));
+                const dashboardLink = document.querySelector('[data-section="dashboard"]');
+                if (dashboardLink) dashboardLink.classList.add('active');
             } else {
+                // User not authenticated, keep them on login page
                 this.showSection('login');
+                this.currentUser = null;
+                this.userData = null;
             }
         } catch (error) {
             console.error('Initialization error:', error);
+            this.showSection('login');
             this.showToast('Error initializing app. Please refresh the page.', 'error');
         }
     }
@@ -837,11 +850,26 @@ class FitnessGame {
         document.querySelectorAll('.nav-link').forEach(link => {
             link.addEventListener('click', (e) => {
                 e.preventDefault();
-                if (!this.currentUser && link.dataset.section !== 'login' && link.dataset.section !== 'signup') {
-                    this.showToast('Please login to continue', 'info');
-                    this.showSection('login');
+                
+                // Block access to all sections except login/signup if not authenticated
+                if (!this.currentUser) {
+                    const section = link.dataset.section;
+                    if (section === 'login' || section === 'signup') {
+                        this.showSection(section);
+                        document.querySelectorAll('.nav-link').forEach(l => l.classList.remove('active'));
+                        link.classList.add('active');
+                    } else {
+                        this.showToast('Please login to access this section', 'info');
+                        this.showSection('login');
+                        // Update login link as active
+                        document.querySelectorAll('.nav-link').forEach(l => l.classList.remove('active'));
+                        const loginLink = document.querySelector('[data-section="login"]');
+                        if (loginLink) loginLink.classList.add('active');
+                    }
                     return;
                 }
+                
+                // User is authenticated, allow navigation
                 const section = link.dataset.section;
                 if (section) {
                     this.showSection(section);
@@ -1206,6 +1234,14 @@ class FitnessGame {
     }
 
     showSection(sectionId) {
+        // Block access to protected sections if not authenticated
+        const protectedSections = ['dashboard', 'workouts', 'achievements', 'leaderboard', 'friends', 'profile'];
+        if (protectedSections.includes(sectionId) && !this.currentUser) {
+            this.showSection('login');
+            this.showToast('Please login to access this section', 'info');
+            return;
+        }
+        
         document.querySelectorAll('.section').forEach(section => {
             section.classList.remove('active');
         });
