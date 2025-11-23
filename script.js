@@ -8,6 +8,8 @@ class FitnessGame {
         this.workouts = [];
         this.friends = [];
         this.pendingRequests = [];
+        this.viewingProfileId = null; // Track which profile is being viewed
+        this.profileMode = 'edit'; // 'edit', 'view', 'settings'
         this.init();
     }
 
@@ -136,6 +138,7 @@ class FitnessGame {
                 weight: profile.weight,
                 fitness_goal: profile.fitness_goal,
                 bio: profile.bio,
+                profile_visibility: profile.profile_visibility || 'public',
                 // Also keep profile JSONB for backward compatibility
                 profile: {
                     age: profile.age,
@@ -507,6 +510,11 @@ class FitnessGame {
     updateProfile() {
         if (!this.userData) return;
 
+        // If viewing another user's profile, don't update own profile
+        if (this.viewingProfileId && this.viewingProfileId !== this.currentUser.id) {
+            return;
+        }
+
         document.getElementById('profileName').textContent = this.userData.name;
         document.getElementById('profileEmail').textContent = this.userData.email;
         document.getElementById('profileLevel').textContent = this.userData.level;
@@ -520,6 +528,205 @@ class FitnessGame {
         document.getElementById('profileWeight').value = this.userData.weight || this.userData.profile?.weight || '';
         document.getElementById('profileGoal').value = this.userData.fitness_goal || this.userData.profile?.fitness_goal || this.userData.profile?.fitnessGoal || '';
         document.getElementById('profileBio').value = this.userData.bio || this.userData.profile?.bio || '';
+        
+        // Update profile visibility setting
+        if (this.userData.profile_visibility) {
+            document.getElementById('profileVisibility').value = this.userData.profile_visibility;
+        }
+    }
+
+    async viewUserProfile(userId) {
+        if (!this.currentUser) return;
+
+        try {
+            const profile = await this.db.getUserProfile(userId);
+            
+            // Check profile visibility
+            const visibility = profile.profile_visibility || 'public';
+            const isFriend = this.friends.some(f => f.id === userId);
+            
+            if (visibility === 'private' && userId !== this.currentUser.id) {
+                this.showToast('This profile is private', 'error');
+                return;
+            }
+            
+            if (visibility === 'friends' && !isFriend && userId !== this.currentUser.id) {
+                this.showToast('This profile is only visible to friends', 'error');
+                return;
+            }
+
+            this.viewingProfileId = userId;
+            this.showOtherUserProfile(profile);
+            this.showSection('profile');
+            document.querySelectorAll('.nav-link').forEach(l => l.classList.remove('active'));
+            document.querySelector('[data-section="profile"]').classList.add('active');
+        } catch (error) {
+            console.error('Error loading user profile:', error);
+            this.showToast('Failed to load profile', 'error');
+        }
+    }
+
+    showOtherUserProfile(profile) {
+        // Hide own profile, show other user profile
+        document.getElementById('myProfileContainer').style.display = 'none';
+        document.getElementById('browseProfilesContainer').style.display = 'none';
+        document.getElementById('otherUserProfileContainer').style.display = 'block';
+        document.getElementById('profileModeSelector').style.display = 'none';
+        document.getElementById('switchToMyProfileBtn').style.display = 'block';
+        document.getElementById('viewPublicProfilesBtn').style.display = 'none';
+        document.getElementById('profileSectionTitle').textContent = `${profile.name}'s Profile`;
+
+        // Populate other user's profile
+        document.getElementById('otherProfileName').textContent = profile.name;
+        document.getElementById('otherProfileUsername').textContent = `@${profile.username}`;
+        document.getElementById('otherProfileLevel').textContent = profile.level || 1;
+        document.getElementById('otherProfileXP').textContent = (profile.xp || 0).toLocaleString();
+        document.getElementById('otherProfileAge').textContent = profile.age || '-';
+        document.getElementById('otherProfileHeight').textContent = profile.height ? `${profile.height} cm` : '-';
+        document.getElementById('otherProfileWeight').textContent = profile.weight ? `${profile.weight} kg` : '-';
+        document.getElementById('otherProfileGoal').textContent = this.formatFitnessGoal(profile.fitness_goal) || '-';
+        document.getElementById('otherProfileBio').textContent = profile.bio || 'No bio yet';
+        document.getElementById('otherTotalWorkouts').textContent = profile.total_workouts || 0;
+        document.getElementById('otherStreak').textContent = profile.streak || 0;
+        document.getElementById('otherBadges').textContent = (profile.badges || []).length;
+    }
+
+    showMyProfile() {
+        this.viewingProfileId = null;
+        document.getElementById('myProfileContainer').style.display = 'block';
+        document.getElementById('otherUserProfileContainer').style.display = 'none';
+        document.getElementById('browseProfilesContainer').style.display = 'none';
+        document.getElementById('profileModeSelector').style.display = 'flex';
+        document.getElementById('switchToMyProfileBtn').style.display = 'none';
+        document.getElementById('viewPublicProfilesBtn').style.display = 'block';
+        document.getElementById('profileSectionTitle').textContent = 'My Profile';
+        this.updateProfile();
+        this.switchProfileMode(this.profileMode);
+    }
+
+    showBrowseProfiles() {
+        this.viewingProfileId = null;
+        document.getElementById('myProfileContainer').style.display = 'none';
+        document.getElementById('otherUserProfileContainer').style.display = 'none';
+        document.getElementById('browseProfilesContainer').style.display = 'block';
+        document.getElementById('profileModeSelector').style.display = 'none';
+        document.getElementById('switchToMyProfileBtn').style.display = 'block';
+        document.getElementById('viewPublicProfilesBtn').style.display = 'none';
+        document.getElementById('profileSectionTitle').textContent = 'Browse Profiles';
+    }
+
+    switchProfileMode(mode) {
+        this.profileMode = mode;
+        document.querySelectorAll('.mode-btn').forEach(btn => btn.classList.remove('active'));
+        document.querySelector(`[data-mode="${mode}"]`).classList.add('active');
+
+        // Show/hide appropriate sections
+        const editCard = document.getElementById('profileForm').closest('.profile-form-card');
+        const settingsCard = document.getElementById('profileSettingsCard');
+        
+        if (mode === 'edit') {
+            editCard.style.display = 'block';
+            settingsCard.style.display = 'none';
+        } else if (mode === 'view') {
+            editCard.style.display = 'none';
+            settingsCard.style.display = 'none';
+        } else if (mode === 'settings') {
+            editCard.style.display = 'none';
+            settingsCard.style.display = 'block';
+        }
+    }
+
+    formatFitnessGoal(goal) {
+        const goals = {
+            'weight-loss': 'Weight Loss',
+            'muscle-gain': 'Muscle Gain',
+            'endurance': 'Endurance',
+            'flexibility': 'Flexibility',
+            'general-fitness': 'General Fitness'
+        };
+        return goals[goal] || goal;
+    }
+
+    async browsePublicProfiles() {
+        const username = document.getElementById('browseUsernameSearch').value.trim();
+        if (!username) {
+            this.showToast('Please enter a username', 'error');
+            return;
+        }
+
+        try {
+            const results = await this.db.searchUsersByUsername(username);
+            const container = document.getElementById('browseProfilesResults');
+            
+            if (results.length === 0) {
+                container.innerHTML = '<p class="empty-state">No users found</p>';
+                return;
+            }
+
+            // Filter out current user
+            const filteredResults = results.filter(u => u.id !== this.currentUser.id);
+            
+            if (filteredResults.length === 0) {
+                container.innerHTML = '<p class="empty-state">No other users found</p>';
+                return;
+            }
+
+            container.innerHTML = filteredResults.map(user => {
+                return `
+                    <div class="friend-card">
+                        <div class="friend-card-header">
+                            <div class="friend-avatar">
+                                <i class="fas fa-user"></i>
+                            </div>
+                            <div class="friend-info">
+                                <h3>${user.name}</h3>
+                                <p>@${user.username} • Level ${user.level || 1}</p>
+                            </div>
+                        </div>
+                        <div class="friend-stats">
+                            <div class="friend-stat">
+                                <span class="friend-stat-value">${user.level || 1}</span>
+                                <span class="friend-stat-label">Level</span>
+                            </div>
+                            <div class="friend-stat">
+                                <span class="friend-stat-value">${(user.xp || 0).toLocaleString()}</span>
+                                <span class="friend-stat-label">XP</span>
+                            </div>
+                            <div class="friend-stat">
+                                <span class="friend-stat-value">${user.total_workouts || 0}</span>
+                                <span class="friend-stat-label">Workouts</span>
+                            </div>
+                        </div>
+                        <div class="friend-actions">
+                            <button class="btn btn-primary btn-small" onclick="window.fitnessGame.viewUserProfile('${user.id}')">
+                                <i class="fas fa-eye"></i> View Profile
+                            </button>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        } catch (error) {
+            console.error('Browse profiles error:', error);
+            this.showToast('Error searching profiles', 'error');
+        }
+    }
+
+    async saveProfileSettings() {
+        if (!this.currentUser || !this.userData) return;
+
+        try {
+            const visibility = document.getElementById('profileVisibility').value;
+            
+            await this.db.updateUserProfile(this.currentUser.id, {
+                profile_visibility: visibility
+            });
+
+            this.userData.profile_visibility = visibility;
+            this.showToast('Profile settings saved!', 'success');
+        } catch (error) {
+            console.error('Error saving profile settings:', error);
+            this.showToast('Failed to save settings', 'error');
+        }
     }
 
     async saveProfile() {
@@ -617,6 +824,11 @@ class FitnessGame {
                     // Load friends data when navigating to friends section
                     if (section === 'friends') {
                         this.updateFriends();
+                    }
+                    
+                    // Reset to own profile when navigating to profile section
+                    if (section === 'profile' && !this.viewingProfileId) {
+                        this.showMyProfile();
                     }
                 }
             });
@@ -737,6 +949,34 @@ class FitnessGame {
                 document.getElementById(tabName).classList.add('active');
             });
         });
+
+        // Profile Switching
+        document.getElementById('switchToMyProfileBtn')?.addEventListener('click', () => {
+            this.showMyProfile();
+        });
+
+        document.getElementById('viewPublicProfilesBtn')?.addEventListener('click', () => {
+            this.showBrowseProfiles();
+        });
+
+        // Profile Mode Selector
+        document.querySelectorAll('.mode-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const mode = btn.dataset.mode;
+                this.switchProfileMode(mode);
+            });
+        });
+
+        // Browse Profiles Search
+        document.getElementById('browseSearchBtn')?.addEventListener('click', () => {
+            this.browsePublicProfiles();
+        });
+
+        // Profile Settings Form
+        document.getElementById('profileSettingsForm')?.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            await this.saveProfileSettings();
+        });
     }
 
     // Friends System
@@ -775,14 +1015,19 @@ class FitnessGame {
                             <p>@${user.username} • Level ${user.level} • ${user.xp || 0} XP</p>
                         </div>
                         <div>
-                            ${isFriend ? 
-                                '<span class="btn btn-secondary btn-small">Already Friends</span>' :
-                                hasPendingRequest ?
-                                '<span class="btn btn-secondary btn-small">Request Pending</span>' :
-                                `<button class="btn btn-primary btn-small" onclick="window.fitnessGame.sendFriendRequest('${user.id}')">
-                                    <i class="fas fa-user-plus"></i> Add Friend
-                                </button>`
-                            }
+                            <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+                                ${isFriend ? 
+                                    '<span class="btn btn-secondary btn-small">Already Friends</span>' :
+                                    hasPendingRequest ?
+                                    '<span class="btn btn-secondary btn-small">Request Pending</span>' :
+                                    `<button class="btn btn-primary btn-small" onclick="window.fitnessGame.sendFriendRequest('${user.id}')">
+                                        <i class="fas fa-user-plus"></i> Add Friend
+                                    </button>`
+                                }
+                                <button class="btn btn-secondary btn-small" onclick="window.fitnessGame.viewUserProfile('${user.id}')">
+                                    <i class="fas fa-eye"></i> View Profile
+                                </button>
+                            </div>
                         </div>
                     </div>
                 `;
@@ -886,8 +1131,8 @@ class FitnessGame {
                         </div>
                     </div>
                     <div class="friend-actions">
-                        <button class="btn btn-primary btn-small" onclick="window.fitnessGame.viewFriendProgress('${friend.id}')">
-                            <i class="fas fa-chart-line"></i> View Progress
+                        <button class="btn btn-primary btn-small" onclick="window.fitnessGame.viewUserProfile('${friend.id}')">
+                            <i class="fas fa-user"></i> View Profile
                         </button>
                     </div>
                 </div>
@@ -929,28 +1174,8 @@ class FitnessGame {
     }
 
     async viewFriendProgress(friendId) {
-        try {
-            const progress = await this.db.getFriendProgress(friendId);
-            
-            // Create a modal or navigate to friend profile view
-            const friendName = progress.profile.name;
-            const stats = progress.stats;
-            
-            let message = `\n${friendName}'s Progress:\n\n`;
-            message += `Level: ${stats.level}\n`;
-            message += `XP: ${stats.totalXP.toLocaleString()}\n`;
-            message += `Workouts: ${stats.totalWorkouts}\n`;
-            message += `Streak: ${stats.currentStreak} days\n`;
-            message += `Achievements: ${progress.achievements.length}\n`;
-            message += `Recent Workouts: ${progress.workouts.length}`;
-            
-            alert(message); // Simple alert for now, can be enhanced with a modal
-            
-            // TODO: Create a proper friend profile modal/view
-        } catch (error) {
-            console.error('View friend progress error:', error);
-            this.showToast('Failed to load friend progress', 'error');
-        }
+        // Redirect to viewUserProfile for better UI
+        await this.viewUserProfile(friendId);
     }
 
     showSection(sectionId) {

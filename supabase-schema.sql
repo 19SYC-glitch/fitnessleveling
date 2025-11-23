@@ -24,6 +24,8 @@ CREATE TABLE IF NOT EXISTS public.users (
     bio TEXT,
     -- Additional flexible profile data
     profile JSONB DEFAULT '{}',
+    -- Profile visibility settings
+    profile_visibility TEXT DEFAULT 'public', -- 'public', 'friends', 'private'
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
@@ -148,6 +150,9 @@ DROP POLICY IF EXISTS "Users can view own friendships" ON public.friendships;
 DROP POLICY IF EXISTS "Users can create friendships" ON public.friendships;
 DROP POLICY IF EXISTS "Users can update own friendships" ON public.friendships;
 DROP POLICY IF EXISTS "Users can delete own friendships" ON public.friendships;
+
+-- Enable RLS on friendships if not already enabled
+ALTER TABLE public.friendships ENABLE ROW LEVEL SECURITY;
 
 -- Users can view friendships they're part of
 CREATE POLICY "Users can view own friendships"

@@ -318,9 +318,31 @@
         <!-- Profile Section -->
         <section id="profile" class="section">
             <div class="section-header">
-                <h1>My Profile</h1>
+                <h1 id="profileSectionTitle">My Profile</h1>
+                <div class="profile-switch-controls">
+                    <button class="btn btn-secondary" id="switchToMyProfileBtn" style="display: none;">
+                        <i class="fas fa-user"></i> My Profile
+                    </button>
+                    <button class="btn btn-secondary" id="viewPublicProfilesBtn">
+                        <i class="fas fa-users"></i> Browse Profiles
+                    </button>
+                </div>
             </div>
-            <div class="profile-container">
+            
+            <!-- Profile View Mode Selector -->
+            <div id="profileModeSelector" class="profile-mode-selector">
+                <button class="mode-btn active" data-mode="edit">
+                    <i class="fas fa-edit"></i> Edit Profile
+                </button>
+                <button class="mode-btn" data-mode="view">
+                    <i class="fas fa-eye"></i> View Profile
+                </button>
+                <button class="mode-btn" data-mode="settings">
+                    <i class="fas fa-cog"></i> Settings
+                </button>
+            </div>
+
+            <div class="profile-container" id="myProfileContainer">
                 <div class="profile-card">
                     <div class="profile-header">
                         <div class="profile-avatar">
@@ -379,6 +401,25 @@
                     </form>
                 </div>
 
+                <!-- Profile Visibility Settings -->
+                <div class="profile-form-card" id="profileSettingsCard" style="display: none;">
+                    <h2>Profile Settings</h2>
+                    <form id="profileSettingsForm">
+                        <div class="form-group">
+                            <label for="profileVisibility">Profile Visibility</label>
+                            <select id="profileVisibility">
+                                <option value="public">Public - Anyone can view</option>
+                                <option value="friends">Friends Only - Only friends can view</option>
+                                <option value="private">Private - Only you can view</option>
+                            </select>
+                            <p class="form-help">Control who can see your profile and progress</p>
+                        </div>
+                        <div class="form-actions">
+                            <button type="submit" class="btn btn-primary">Save Settings</button>
+                        </div>
+                    </form>
+                </div>
+
                 <div class="profile-form-card">
                     <h2>Change Password</h2>
                     <form id="passwordForm">
@@ -398,6 +439,86 @@
                             <button type="submit" class="btn btn-primary">Update Password</button>
                         </div>
                     </form>
+                </div>
+            </div>
+
+            <!-- Other User Profile View -->
+            <div id="otherUserProfileContainer" class="profile-container" style="display: none;">
+                <div class="profile-card">
+                    <div class="profile-header">
+                        <div class="profile-avatar">
+                            <i class="fas fa-user"></i>
+                        </div>
+                        <div class="profile-info">
+                            <h2 id="otherProfileName">Loading...</h2>
+                            <p id="otherProfileUsername">@username</p>
+                            <div class="profile-stats-mini">
+                                <span>Level <strong id="otherProfileLevel">1</strong></span>
+                                <span><strong id="otherProfileXP">0</strong> XP</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="profile-form-card">
+                    <h2>Profile Information</h2>
+                    <div class="profile-view-info">
+                        <div class="info-row">
+                            <span class="info-label">Age:</span>
+                            <span id="otherProfileAge">-</span>
+                        </div>
+                        <div class="info-row">
+                            <span class="info-label">Height:</span>
+                            <span id="otherProfileHeight">-</span>
+                        </div>
+                        <div class="info-row">
+                            <span class="info-label">Weight:</span>
+                            <span id="otherProfileWeight">-</span>
+                        </div>
+                        <div class="info-row">
+                            <span class="info-label">Fitness Goal:</span>
+                            <span id="otherProfileGoal">-</span>
+                        </div>
+                        <div class="info-row">
+                            <span class="info-label">Bio:</span>
+                            <span id="otherProfileBio">-</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="profile-form-card">
+                    <h2>Statistics</h2>
+                    <div class="profile-stats-grid">
+                        <div class="stat-item">
+                            <div class="stat-value" id="otherTotalWorkouts">0</div>
+                            <div class="stat-label">Total Workouts</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-value" id="otherStreak">0</div>
+                            <div class="stat-label">Day Streak</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-value" id="otherBadges">0</div>
+                            <div class="stat-label">Achievements</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Browse Public Profiles -->
+            <div id="browseProfilesContainer" class="profile-container" style="display: none;">
+                <div class="profile-form-card">
+                    <h2>Browse Public Profiles</h2>
+                    <div class="form-group">
+                        <label for="browseUsernameSearch">Search by Username</label>
+                        <input type="text" id="browseUsernameSearch" placeholder="Enter username">
+                        <button type="button" class="btn btn-primary" id="browseSearchBtn" style="margin-top: 0.5rem;">
+                            <i class="fas fa-search"></i> Search
+                        </button>
+                    </div>
+                    <div id="browseProfilesResults" class="friends-grid" style="margin-top: 2rem;">
+                        <p class="empty-state">Search for users to view their profiles</p>
+                    </div>
                 </div>
             </div>
         </section>
