@@ -60,6 +60,11 @@ class SupabaseDatabase {
                                 streak: 0,
                                 total_workouts: 0,
                                 badges: [],
+                                age: null,
+                                height: null,
+                                weight: null,
+                                fitness_goal: null,
+                                bio: null,
                                 profile: {}
                             });
                     }

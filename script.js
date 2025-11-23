@@ -127,7 +127,21 @@ class FitnessGame {
                 lastWorkoutDate: profile.last_workout_date,
                 totalWorkouts: profile.total_workouts || 0,
                 badges: profile.badges || [],
-                profile: profile.profile || {}
+                // Profile data from dedicated columns
+                age: profile.age,
+                height: profile.height,
+                weight: profile.weight,
+                fitness_goal: profile.fitness_goal,
+                bio: profile.bio,
+                // Also keep profile JSONB for backward compatibility
+                profile: {
+                    age: profile.age,
+                    height: profile.height,
+                    weight: profile.weight,
+                    fitness_goal: profile.fitness_goal,
+                    bio: profile.bio,
+                    ...(profile.profile || {})
+                }
             };
 
             this.workouts = await this.db.getWorkoutsByUserId(this.currentUser.id);
@@ -497,13 +511,12 @@ class FitnessGame {
 
         // Populate form
         document.getElementById('profileNameInput').value = this.userData.name;
-        if (this.userData.profile) {
-            document.getElementById('profileAge').value = this.userData.profile.age || '';
-            document.getElementById('profileHeight').value = this.userData.profile.height || '';
-            document.getElementById('profileWeight').value = this.userData.profile.weight || '';
-            document.getElementById('profileGoal').value = this.userData.profile.fitness_goal || this.userData.profile.fitnessGoal || '';
-            document.getElementById('profileBio').value = this.userData.profile.bio || '';
-        }
+        // Use dedicated columns first, fallback to profile JSONB
+        document.getElementById('profileAge').value = this.userData.age || this.userData.profile?.age || '';
+        document.getElementById('profileHeight').value = this.userData.height || this.userData.profile?.height || '';
+        document.getElementById('profileWeight').value = this.userData.weight || this.userData.profile?.weight || '';
+        document.getElementById('profileGoal').value = this.userData.fitness_goal || this.userData.profile?.fitness_goal || this.userData.profile?.fitnessGoal || '';
+        document.getElementById('profileBio').value = this.userData.bio || this.userData.profile?.bio || '';
     }
 
     async saveProfile() {
@@ -514,7 +527,10 @@ class FitnessGame {
 
         try {
             this.userData.name = document.getElementById('profileNameInput').value.trim();
-            this.userData.profile = {
+            
+            // Save profile data to dedicated columns
+            const profileData = {
+                name: this.userData.name,
                 age: document.getElementById('profileAge').value ? parseInt(document.getElementById('profileAge').value) : null,
                 height: document.getElementById('profileHeight').value ? parseFloat(document.getElementById('profileHeight').value) : null,
                 weight: document.getElementById('profileWeight').value ? parseFloat(document.getElementById('profileWeight').value) : null,
@@ -522,7 +538,19 @@ class FitnessGame {
                 bio: document.getElementById('profileBio').value.trim() || null
             };
 
-            await this.saveUserData();
+            // Update userData for local state
+            this.userData.profile = profileData;
+
+            // Save to database with dedicated columns
+            await this.db.updateUserProfile(this.currentUser.id, profileData);
+
+            // Also update local userData
+            this.userData.age = profileData.age;
+            this.userData.height = profileData.height;
+            this.userData.weight = profileData.weight;
+            this.userData.fitness_goal = profileData.fitness_goal;
+            this.userData.bio = profileData.bio;
+
             this.updateProfile();
             this.updateDashboard();
             this.showToast('Profile updated successfully!', 'success');

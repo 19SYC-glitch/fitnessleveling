@@ -16,6 +16,13 @@ CREATE TABLE IF NOT EXISTS public.users (
     last_workout_date DATE,
     total_workouts INTEGER DEFAULT 0,
     badges TEXT[] DEFAULT '{}',
+    -- Profile data fields
+    age INTEGER,
+    height DECIMAL(5,2), -- in cm
+    weight DECIMAL(5,2), -- in kg
+    fitness_goal TEXT,
+    bio TEXT,
+    -- Additional flexible profile data
     profile JSONB DEFAULT '{}',
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
